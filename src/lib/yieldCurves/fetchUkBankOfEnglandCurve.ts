@@ -12,7 +12,8 @@ import type {
 } from "./types";
 import { YIELD_CURVE_MATURITIES, YIELD_MATURITY_YEAR_FRACTION } from "./types";
 
-export const STRUCTURALLY_MISSING_GB: readonly YieldMaturity[] = ["30Y"];
+/** Tenors the Bank of England nominal spot grid does not publish. 30Y is on the spot curve. */
+export const STRUCTURALLY_MISSING_GB: readonly YieldMaturity[] = [];
 
 const ANCHOR_MATURITY: YieldMaturity = "10Y";
 
@@ -82,7 +83,19 @@ export function buildUkBankOfEnglandYieldSnapshot(
       };
     }
 
-    const currentObs = rows[rows.length - 1] ?? null;
+    // Current level is the print on the latest curve date. An older last row
+    // (BoE leaves 1M/3M blank) must not be shown as today's yield.
+    const currentObs = rows.find((r) => r.date === latestDate) ?? null;
+    if (!currentObs) {
+      if (!unavailableMaturities.includes(maturity)) unavailableMaturities.push(maturity);
+      return {
+        maturity,
+        years: YIELD_MATURITY_YEAR_FRACTION[maturity],
+        currentYield: null,
+        comparisonYield: null,
+        changeBps: null,
+      };
+    }
 
     let cmpObs: BoeObservationRow | null = null;
     if (comparisonId === "Today") {

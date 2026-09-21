@@ -4,6 +4,7 @@ import { getNextChinaLprPublication } from "./chinaLpr";
 import {
   lastChangeFields,
   lastDecisionFromMeetingsAndSeries,
+  lastDecisionFromSeries,
   lastDecisionFromTwoPrints,
   latestRate,
   type LastDecision,
@@ -433,7 +434,16 @@ async function fetchRiksbank(): Promise<PolicyRateRow> {
   ]);
   if (!result.ok) throw new Error(result.error);
   const snap = latestSnapshot(result.rows);
-  const last = lastDecisionFromMeetingsAndSeries(meetings.dates, result.rows);
+  // Calendar HTML is only used for the "last decision" label. The rate itself is SWEA.
+  // A blocked or empty calendar must not drop an otherwise live policy rate.
+  let last: LastDecision;
+  try {
+    last = lastDecisionFromMeetingsAndSeries(meetings.dates, result.rows);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`[POLICY][riksbank] meeting calendar unusable (${msg}) — last change from SWEA series`);
+    last = lastDecisionFromSeries(result.rows);
+  }
   return liveRow(seed, {
     rateDisplay: formatPolicyRatePct(snap.latestValue),
     applicableFrom: last.dateIso,

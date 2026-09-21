@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { PageShell, Panel } from "@/components/PageShell";
 import { YieldCurveChart } from "@/components/yield-curves/YieldCurveChart";
 import { YieldCurveCountryChart } from "@/components/yield-curves/YieldCurveCountryChart";
 import { YieldCurveCountryTable } from "@/components/yield-curves/YieldCurveCountryTable";
 import { YieldCurveInterpretation } from "@/components/yield-curves/YieldCurveInterpretation";
 import { YieldCurveSummaryCards } from "@/components/yield-curves/YieldCurveSummaryCards";
+import type { YieldCurveSummaryCardsProps } from "@/components/yield-curves/YieldCurveSummaryCards";
 import { YieldCurveTable } from "@/components/yield-curves/YieldCurveTable";
 import { YieldCurveDataNotes, YieldCurvePanelEmpty } from "@/components/yield-curves/YieldCurveDataNotes";
+import { YieldCurveFetchSpinner } from "@/components/yield-curves/YieldCurveFetchSpinner";
+import { YC_CHART_HEIGHT } from "@/components/yield-curves/yieldCurvePageUi";
 import { buildCountryCompareRows } from "@/lib/yieldCurves/countryCompare";
 import {
   averageCurveMoveBps,
@@ -271,10 +274,20 @@ export default function YieldCurvesPage() {
       ? `Comparison (${comparisonLabel("Today")})`
       : `Comparison (${comparisonId})`;
 
-  const showInitialLoadingTime = !isCountryMode && q.isPending && !ui;
-  const showInitialLoadingCountry = isCountryMode && primaryQ.isPending && !primaryUi;
-  const showInitialLoading = showInitialLoadingTime || showInitialLoadingCountry;
-  const compareLoadingCountry = isCountryMode && compareQ.isPending && !compareUi;
+  const curveFetching = isCountryMode
+    ? primaryQ.isFetching || compareQ.isFetching
+    : q.isFetching;
+  const awaitingTime = !isCountryMode && !ui && (q.isFetching || q.isPending);
+  const awaitingPrimary =
+    isCountryMode && !primaryUi && (primaryQ.isFetching || primaryQ.isPending);
+  const awaitingCurve = awaitingTime || awaitingPrimary;
+  const compareLoadingCountry =
+    isCountryMode && !compareUi && (compareQ.isFetching || compareQ.isPending);
+  const summaryPending = isCountryMode ? awaitingPrimary || compareLoadingCountry : awaitingTime;
+
+  const lastTimeSummary = useRef<Extract<YieldCurveSummaryCardsProps, { variant: "time" }> | null>(
+    null,
+  );
 
   const seUnavailableMaturities = useMemo((): YieldMaturity[] => {
     const sourceRows = isCountryMode ? (seUi?.rows ?? []) : countryId === "SE" ? rows : [];
@@ -350,17 +363,47 @@ export default function YieldCurvesPage() {
             ? "China"
             : "United States";
 
+  const timeSummaryLive: Extract<YieldCurveSummaryCardsProps, { variant: "time" }> = {
+    variant: "time",
+    comparisonId,
+    countryId,
+    countryLabel,
+    marketRegime,
+    riskSignalBps: timeRisk.bps,
+    riskSignalComparisonBps: timeRiskComparison,
+    riskSignalInsufficient: timeRisk.insufficient,
+    riskSignalChangeBps: timeRiskChange,
+    y10,
+    y10ChangeBps,
+  };
+  if (!isCountryMode && ui && !q.isFetching) {
+    lastTimeSummary.current = timeSummaryLive;
+  }
+  const holdTimeSummary =
+    !isCountryMode &&
+    q.isFetching &&
+    Boolean(q.isPlaceholderData) &&
+    lastTimeSummary.current?.countryId === countryId;
+  const timeSummary =
+    holdTimeSummary && lastTimeSummary.current ? lastTimeSummary.current : timeSummaryLive;
+  const timeCardsFetching = !isCountryMode && q.isFetching;
+  const timeCardsBlank = timeCardsFetching && !holdTimeSummary && !ui;
+
   const countryPeriodLabel =
     comparisonId === "Today" ? "current levels" : `${comparisonId} ago`;
 
   const chartPanelMeta = isCountryMode
     ? `${primaryLabel} vs ${compareLabel} · ${countryPeriodLabel}`
     : snapshot
-      ? `As of ${snapshot.date} · vs ${snapshot.comparisonDate}`
+      ? snapshot.source === "TradingView"
+        ? comparisonId === "Today"
+          ? `As of ${snapshot.date} · TradingView UK Government Bond Yields · vs prior close`
+          : `As of ${snapshot.date} · TradingView UK Government Bond Yields · vs TradingView ${comparisonId}`
+        : `As of ${snapshot.date} · vs ${snapshot.comparisonDate}`
       : countryLabel;
 
   const chartEmptyState = useMemo((): { title: string; message: string } | null => {
-    if (showInitialLoading) return null;
+    if (awaitingCurve) return null;
 
     const errQ = isCountryMode ? primaryQ : q;
     if (errQ.isError && errQ.error != null) {
@@ -382,7 +425,7 @@ export default function YieldCurvesPage() {
         const unavailableMessages: Partial<Record<SovereignCountryId, string>> = {
           SE: "Swedish market rate data (DI/Millistream) could not be loaded.",
           NO: "Official Norges Bank data could not be loaded.",
-          GB: "Official Bank of England data could not be loaded.",
+          GB: "United Kingdom yield curve data unavailable.",
           CN: "Official ChinaBond data could not be loaded.",
         };
         const msg = unavailableMessages[countryId];
@@ -401,7 +444,7 @@ export default function YieldCurvesPage() {
 
     return null;
   }, [
-    showInitialLoading,
+    awaitingCurve,
     isCountryMode,
     primaryQ,
     q,
@@ -557,27 +600,22 @@ export default function YieldCurvesPage() {
             compareRiskInsufficient={compareRisk.insufficient}
             spread10Bps={countrySpreadBps("10Y")}
             relativeRegime={relativeRegime}
+            pending={summaryPending}
           />
         ) : (
           <YieldCurveSummaryCards
-            variant="time"
-            comparisonId={comparisonId}
-            countryId={countryId}
-            countryLabel={countryLabel}
-            marketRegime={marketRegime}
-            riskSignalBps={timeRisk.bps}
-            riskSignalComparisonBps={timeRiskComparison}
-            riskSignalInsufficient={timeRisk.insufficient}
-            riskSignalChangeBps={timeRiskChange}
-            y10={y10}
-            y10ChangeBps={y10ChangeBps}
+            {...timeSummary}
+            pending={timeCardsBlank}
+            fetching={timeCardsFetching}
           />
         )}
 
-        <Panel title="Yield curve" meta={chartPanelMeta}>
-          {showInitialLoading ? (
-            <div className="mx-4 my-6 h-[360px] animate-pulse rounded-md bg-muted/30" />
-          ) : chartEmptyState ? (
+        <Panel
+          title="Yield curve"
+          meta={chartPanelMeta}
+          actions={curveFetching ? <YieldCurveFetchSpinner /> : undefined}
+        >
+          {chartEmptyState ? (
             <YieldCurvePanelEmpty
               title={chartEmptyState.title}
               message={chartEmptyState.message}
@@ -591,9 +629,13 @@ export default function YieldCurvesPage() {
                 compareLoading={compareLoadingCountry}
                 periodLabel={countryPeriodLabel}
               />
-            ) : null
-          ) : (
+            ) : (
+              <div style={{ height: YC_CHART_HEIGHT }} />
+            )
+          ) : rows.length ? (
             <YieldCurveChart rows={rows} comparisonName={comparisonLegend} scaleMode="auto" />
+          ) : (
+            <div style={{ height: YC_CHART_HEIGHT }} />
           )}
         </Panel>
 
@@ -604,10 +646,9 @@ export default function YieldCurvesPage() {
               ? `Yields and ${primaryLabel} minus ${compareLabel} spread (${countryPeriodLabel})`
               : "Current vs comparison yields (basis points)"
           }
+          actions={curveFetching ? <YieldCurveFetchSpinner /> : undefined}
         >
-          {showInitialLoading ? (
-            <div className="mx-4 my-6 h-[220px] animate-pulse rounded-md bg-muted/30" />
-          ) : chartEmptyState ? (
+          {chartEmptyState ? (
             <YieldCurvePanelEmpty
               title={chartEmptyState.title}
               message={chartEmptyState.message}
@@ -621,13 +662,15 @@ export default function YieldCurvesPage() {
                 compareLoading={compareLoadingCountry}
                 periodLabel={countryPeriodLabel}
               />
-            ) : null
+            ) : (
+              <YieldCurveTable rows={[]} pending />
+            )
           ) : (
-            <YieldCurveTable rows={rows} />
+            <YieldCurveTable rows={rows} pending={awaitingTime} />
           )}
         </Panel>
 
-        {!isCountryMode ? (
+        {!isCountryMode && rows.length ? (
           <YieldCurveInterpretation
             label={interp}
             meanBps={meanShift}
@@ -642,7 +685,11 @@ export default function YieldCurvesPage() {
           coverageNote={
             countryId === "SE"
               ? "Sweden: 1M/3M/6M treasury bills from Riksbank SWEA (official, T+1). 2Y/5Y/10Y/30Y from DI/Millistream (~15 min delayed). 1Y is not published."
-              : undefined
+              : countryId === "GB"
+                ? gbUi?.dataSourceTag === "boe-fallback"
+                  ? "TradingView UK government bond yields were unavailable. This curve is the latest Bank of England nominal gilt zero-coupon spot curve."
+                  : "Current curve and 1D, 1W, 1M, 3M, and 1Y comparisons use TradingView UK government bond benchmark yields for the same symbols. A missing TradingView history point is left unavailable. Bank of England zero-coupon spot yields are not mixed into these changes."
+                : undefined
           }
         />
       </div>

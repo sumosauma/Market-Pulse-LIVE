@@ -161,12 +161,12 @@ export function YieldCurveCountryChart({
   rows,
   primaryLabel,
   compareLabel,
-  compareLoading = false,
   periodLabel = "current levels",
 }: {
   rows: YieldCurveCountryCompareRow[];
   primaryLabel: string;
   compareLabel: string;
+  /** Accepted so a compare fetch can stay quiet in the legend while the page spinner is showing. */
   compareLoading?: boolean;
   periodLabel?: string;
 }) {
@@ -179,7 +179,7 @@ export function YieldCurveCountryChart({
   }));
 
   const yDomain = computeSharedYieldYDomain(rows.flatMap((r) => [r.primaryYield, r.compareYield]));
-  const compareLegendLabel = compareLoading ? `${compareLabel} (loading…)` : compareLabel;
+  const compareLegendLabel = compareLabel;
 
   return (
     <div className="w-full min-w-0">

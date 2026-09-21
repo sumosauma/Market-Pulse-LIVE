@@ -1,173 +1,111 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import type {
-  GetUkYieldHistoryResponse,
-  ParsedUkBankOfEnglandHistory,
-  YieldComparisonId,
-  YieldCurveRowView,
-  YieldCurveSnapshot,
-} from "./types";
+import type { YieldComparisonId, YieldCurveRowView, YieldCurveSnapshot } from "./types";
+import type { UkYieldDataSourceTag } from "./types";
 import {
   buildUkBankOfEnglandYieldSnapshot,
   snapshotToRowViews,
 } from "./fetchUkBankOfEnglandCurve";
-import { getUkBankOfEnglandYieldHistory } from "./ukYieldCurve.server";
-import { isUkHistoryCacheFresh, UK_HISTORY_CACHE_TTL_MS } from "./ukHistoryCache";
+import { getUkBankOfEnglandYieldHistory, getUkTradingViewYields } from "./ukYieldCurve.server";
+import { UK_HISTORY_CACHE_TTL_MS } from "./ukHistoryCache";
+import { buildUkTradingViewYieldSnapshot } from "./ukTradingViewCurve";
 
-const LOG = "[GB_CURVE]";
-const BROWSER_LS_KEY = "market-pulse:gb-boe-yield-history:v1";
-
-export type UkHistoryModel = GetUkYieldHistoryResponse;
+const TV_STALE_MS = 5 * 60 * 1000;
 
 export type UkBankOfEnglandYieldCurveResult = {
   snapshot: YieldCurveSnapshot;
   rows: YieldCurveRowView[];
-  dataSourceTag: GetUkYieldHistoryResponse["dataSourceTag"];
+  dataSourceTag: UkYieldDataSourceTag;
   serverErrorMessage: string | null;
   fallbackHint: string | null;
   cacheSavedAtISO: string | null;
   historyFetchedAt: string | null;
 };
 
-function persistBrowserHistory(history: ParsedUkBankOfEnglandHistory): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(
-      BROWSER_LS_KEY,
-      JSON.stringify({ savedAt: Date.now(), history }),
-    );
-  } catch {
-    // ignore
-  }
-}
-
-function loadBrowserHistory(): { savedAt: number; history: ParsedUkBankOfEnglandHistory } | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(BROWSER_LS_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return null;
-    const obj = parsed as { savedAt?: unknown; history?: ParsedUkBankOfEnglandHistory };
-    if (!obj.history?.series?.length) return null;
-    const savedAt = typeof obj.savedAt === "number" ? obj.savedAt : Date.now();
-    return { savedAt, history: obj.history };
-  } catch {
-    return null;
-  }
-}
-
-function browserCacheToHistoryModel(
-  br: { savedAt: number; history: ParsedUkBankOfEnglandHistory },
-): UkHistoryModel {
-  return {
-    history: br.history,
-    dataSourceTag: "browser-local-storage",
-    errorMessage: null,
-    updatedAtISO: new Date(br.savedAt).toISOString(),
-    cacheSavedAtISO: new Date(br.savedAt).toISOString(),
-  };
-}
-
-function buildCurveResult(
-  historyModel: UkHistoryModel,
-  comparison: YieldComparisonId,
-): UkBankOfEnglandYieldCurveResult | null {
-  const history = historyModel.history;
-  if (!history?.series?.length) return null;
-
-  const snapshot = buildUkBankOfEnglandYieldSnapshot(
-    history,
-    comparison,
-    historyModel.updatedAtISO,
-  );
-  if (!snapshot) return null;
-
-  const tag = historyModel.dataSourceTag;
-  const isBrowser = tag === "browser-local-storage";
-  const isDisk = tag === "boe-disk-cache";
-
-  return {
-    snapshot,
-    rows: snapshotToRowViews(snapshot),
-    dataSourceTag: tag,
-    serverErrorMessage: historyModel.errorMessage,
-    fallbackHint: isBrowser
-      ? `Using cached Bank of England data (${new Date(historyModel.cacheSavedAtISO ?? historyModel.updatedAtISO).toLocaleString()})`
-      : isDisk
-        ? "Using cached Bank of England data (server disk)"
-        : null,
-    cacheSavedAtISO: historyModel.cacheSavedAtISO,
-    historyFetchedAt: history.fetchedAt,
-  };
-}
-
-async function fetchUkHistoryModel(
-  serverFn: (input: { data: { forceRefresh?: boolean } }) => Promise<GetUkYieldHistoryResponse>,
-  forceRefresh = false,
-): Promise<UkHistoryModel | null> {
-  try {
-    const payload = await serverFn({ data: { forceRefresh } });
-    if (payload.history?.series?.length) {
-      persistBrowserHistory(payload.history);
-      return payload;
-    }
-    return payload.history ? payload : null;
-  } catch (e) {
-    console.info(`${LOG} Server history fetch failed — ${e instanceof Error ? e.message : String(e)}`);
-    return null;
-  }
-}
-
-function initialHistoryFromBrowser(): UkHistoryModel | undefined {
-  const br = loadBrowserHistory();
-  if (!br) return undefined;
-  return browserCacheToHistoryModel(br);
-}
-
-/** Yield Curves (UK) — history fetched once per TTL; comparisons rebuilt locally. */
+/** UK curve: TradingView current and comparisons use the same symbols. Bank of England is only the full-curve fallback. */
 export function useUkBankOfEnglandYieldCurve(comparison: YieldComparisonId, enabled = true) {
-  const serverFn = useServerFn(getUkBankOfEnglandYieldHistory);
+  const fetchTradingView = useServerFn(getUkTradingViewYields);
+  const fetchHistory = useServerFn(getUkBankOfEnglandYieldHistory);
+
+  const tvQuery = useQuery({
+    queryKey: ["yield-curve-gb-tv-v2"],
+    queryFn: () => fetchTradingView(),
+    enabled,
+    staleTime: TV_STALE_MS,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const tvOk = Boolean(tvQuery.data?.current?.quotes.length);
+  const tvFailed = tvQuery.isFetched && !tvOk;
 
   const historyQuery = useQuery({
     queryKey: ["yield-curve-gb-boe-history"],
-    queryFn: async () => {
-      const live = await fetchUkHistoryModel(serverFn, false);
-      if (live?.history?.series?.length) return live;
-
-      const br = loadBrowserHistory();
-      if (br?.history?.series?.length) {
-        console.info(`${LOG} Loaded from browser localStorage after server miss`);
-        return browserCacheToHistoryModel(br);
-      }
-      return live;
-    },
-    enabled,
+    queryFn: () => fetchHistory({ data: { forceRefresh: false } }),
+    enabled: enabled && tvFailed,
     staleTime: UK_HISTORY_CACHE_TTL_MS,
     gcTime: 24 * 60 * 60 * 1000,
-    initialData: initialHistoryFromBrowser,
-    initialDataUpdatedAt: () => loadBrowserHistory()?.savedAt,
-    placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
     refetchOnMount: (query) => {
       const updatedAt = query.state.dataUpdatedAt;
       if (!updatedAt) return true;
-      return !isUkHistoryCacheFresh(updatedAt);
+      return Date.now() - updatedAt >= UK_HISTORY_CACHE_TTL_MS;
     },
   });
 
-  const data = useMemo(() => {
-    if (!historyQuery.data?.history?.series?.length) return null;
-    return buildCurveResult(historyQuery.data, comparison);
-  }, [historyQuery.data, comparison]);
+  const data = useMemo((): UkBankOfEnglandYieldCurveResult | null => {
+    const updatedAt = new Date().toISOString();
+    const tv = tvQuery.data?.current ?? null;
+    const history = historyQuery.data?.history?.series?.length ? historyQuery.data.history : null;
 
-  const isUpdating = historyQuery.isFetching && Boolean(historyQuery.data?.history?.series?.length);
+    if (tv?.quotes.length) {
+      const snapshot = buildUkTradingViewYieldSnapshot(tv, comparison, updatedAt);
+      if (!snapshot) return null;
+      return {
+        snapshot,
+        rows: snapshotToRowViews(snapshot),
+        dataSourceTag: "tv-live",
+        serverErrorMessage: null,
+        fallbackHint: null,
+        cacheSavedAtISO: null,
+        historyFetchedAt: null,
+      };
+    }
+
+    if (tvQuery.isFetched && history) {
+      const snapshot = buildUkBankOfEnglandYieldSnapshot(
+        history,
+        comparison,
+        historyQuery.data?.updatedAtISO ?? updatedAt,
+      );
+      if (!snapshot) return null;
+      return {
+        snapshot,
+        rows: snapshotToRowViews(snapshot),
+        dataSourceTag: "boe-fallback",
+        serverErrorMessage: tvQuery.data?.errorMessage ?? "TradingView UK government bond yields unavailable.",
+        fallbackHint:
+          "TradingView UK government bond yields unavailable. Showing the latest Bank of England gilt spot curve.",
+        cacheSavedAtISO: historyQuery.data?.cacheSavedAtISO ?? null,
+        historyFetchedAt: history.fetchedAt,
+      };
+    }
+
+    return null;
+  }, [comparison, historyQuery.data, historyQuery.isFetched, tvQuery.data, tvQuery.isFetched]);
+
+  const boeSettled = !tvFailed || historyQuery.isFetched;
+  const settled = tvQuery.isFetched && boeSettled;
+  const bothFailed = settled && !data;
 
   return {
-    ...historyQuery,
+    ...tvQuery,
     data,
-    isPending: historyQuery.isPending && !data,
-    isUpdating,
+    isPending: !data && !settled,
+    isError: bothFailed,
+    error: bothFailed ? new Error("United Kingdom yield curve data unavailable.") : null,
+    isFetching: tvQuery.isFetching || historyQuery.isFetching,
+    isUpdating: Boolean(data) && (tvQuery.isFetching || historyQuery.isFetching),
   };
 }

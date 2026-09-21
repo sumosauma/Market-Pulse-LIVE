@@ -24,6 +24,7 @@ import {
   YieldCurveRiskSignalScale,
   type RiskSignalScaleMarker,
 } from "@/components/yield-curves/YieldCurveRiskSignalScale";
+import { YieldCurveFetchSpinner } from "@/components/yield-curves/YieldCurveFetchSpinner";
 
 const CARD =
   "rounded-sm border border-border bg-card/80 px-4 py-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]";
@@ -46,6 +47,15 @@ const CARD_FOOTER =
 const CARD_DETAIL =
   "mt-1 text-[10px] tabular-nums leading-snug text-muted-foreground/90";
 
+function CardHeading({ title, fetching }: { title: string; fetching?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className={CARD_TITLE}>{title}</div>
+      {fetching ? <YieldCurveFetchSpinner /> : null}
+    </div>
+  );
+}
+
 function MetricCard({
   title,
   value,
@@ -54,6 +64,7 @@ function MetricCard({
   footer,
   header,
   children,
+  fetching,
 }: {
   title: string;
   value: string;
@@ -62,10 +73,11 @@ function MetricCard({
   footer?: string;
   header?: React.ReactNode;
   children?: React.ReactNode;
+  fetching?: boolean;
 }) {
   return (
     <div className={CARD}>
-      <div className={CARD_TITLE}>{title}</div>
+      <CardHeading title={title} fetching={fetching} />
       {header}
       <div className={CARD_VALUE}>{value}</div>
       {subtext ? (
@@ -106,28 +118,32 @@ function CurrentRiskSignalCard({
   countryLabel,
   bps,
   insufficient,
+  pending = false,
+  fetching = false,
 }: {
   title: string;
   countryId: SovereignCountryId;
   countryLabel: string;
   bps: number | null;
   insufficient: boolean;
+  pending?: boolean;
+  fetching?: boolean;
 }) {
   const markers: RiskSignalScaleMarker[] =
-    !insufficient && bps !== null ? [{ bps, role: "primary" }] : [];
+    !pending && !insufficient && bps !== null ? [{ bps, role: "primary" }] : [];
 
   return (
     <div className={CARD}>
-      <div className={CARD_TITLE}>{title}</div>
+      <CardHeading title={title} fetching={fetching} />
       <CountryIdentityLine countryId={countryId} label={countryLabel} />
-      <div className={CARD_VALUE}>{insufficient ? "—" : fmtRiskBps(bps)}</div>
-      {insufficient ? (
+      <div className={CARD_VALUE}>{pending || insufficient ? "—" : fmtRiskBps(bps)}</div>
+      {insufficient && !pending ? (
         <p className="mt-0.5 text-[11px] text-muted-foreground">{RISK_SIGNAL_NOT_ENOUGH}</p>
       ) : null}
-      {!insufficient && bps !== null ? (
+      {!pending && !insufficient && bps !== null ? (
         <p className={CARD_FOOTER}>{riskSignalInterpretation(bps)}</p>
       ) : null}
-      {!insufficient ? <YieldCurveRiskSignalScale markers={markers} /> : null}
+      {!pending && !insufficient ? <YieldCurveRiskSignalScale markers={markers} /> : null}
     </div>
   );
 }
@@ -138,19 +154,24 @@ function TimeRiskComparisonCard({
   comparisonBps,
   changeBps,
   insufficient,
+  pending = false,
+  fetching = false,
 }: {
   comparisonId: YieldComparisonId;
   currentBps: number | null;
   comparisonBps: number | null;
   changeBps: number | null;
   insufficient: boolean;
+  pending?: boolean;
+  fetching?: boolean;
 }) {
-  if (insufficient) {
+  if (pending || insufficient) {
     return (
       <MetricCard
         title="2Y–10Y spread comparison"
         value="—"
-        subtext={RISK_SIGNAL_NOT_ENOUGH}
+        subtext={pending ? undefined : RISK_SIGNAL_NOT_ENOUGH}
+        fetching={fetching}
       />
     );
   }
@@ -161,6 +182,7 @@ function TimeRiskComparisonCard({
         title="2Y–10Y spread comparison"
         value="—"
         subtext="Select a comparison period to see movement"
+        fetching={fetching}
       />
     );
   }
@@ -179,7 +201,7 @@ function TimeRiskComparisonCard({
 
   return (
     <div className={CARD}>
-      <div className={CARD_TITLE}>2Y–10Y spread comparison</div>
+      <CardHeading title="2Y–10Y spread comparison" fetching={fetching} />
       <div className="mt-2 space-y-1.5">
         <CountryValueRow label="Today" value={fmtRiskBps(currentBps)} />
         <CountryValueRow label={agoLabel} value={fmtRiskBps(comparisonBps)} />
@@ -196,17 +218,23 @@ function MarketRegimeCard({
   countryId,
   countryLabel,
   regime,
+  pending = false,
+  fetching = false,
 }: {
   countryId: SovereignCountryId;
   countryLabel: string;
   regime: MarketRegimeView;
+  pending?: boolean;
+  fetching?: boolean;
 }) {
-  if (regime.state === "insufficient") {
+  if (pending || regime.state === "insufficient") {
     return (
       <MetricCard
         title="Market regime"
         value="—"
-        subtext={RISK_SIGNAL_NOT_ENOUGH}
+        subtext={pending ? undefined : RISK_SIGNAL_NOT_ENOUGH}
+        fetching={fetching}
+        header={<CountryIdentityLine countryId={countryId} label={countryLabel} />}
       />
     );
   }
@@ -214,7 +242,7 @@ function MarketRegimeCard({
   if (regime.state === "pick-period") {
     return (
       <div className={CARD}>
-        <div className={CARD_TITLE}>Market regime</div>
+        <CardHeading title="Market regime" fetching={fetching} />
         <CountryIdentityLine countryId={countryId} label={countryLabel} />
         <div className={CARD_REGIME_VALUE}>Select a comparison period</div>
         <p className={CARD_EXPLANATION}>
@@ -226,7 +254,7 @@ function MarketRegimeCard({
 
   return (
     <div className={CARD}>
-      <div className={CARD_TITLE}>Market regime</div>
+      <CardHeading title="Market regime" fetching={fetching} />
       <CountryIdentityLine countryId={countryId} label={countryLabel} />
       <div className={CARD_REGIME_VALUE}>{regime.regime}</div>
       <p className={CARD_DETAIL}>
@@ -245,6 +273,7 @@ function CountryCurveComparisonCard({
   primaryBps,
   compareBps,
   compareInsufficient,
+  pending = false,
 }: {
   primaryCountryId: SovereignCountryId;
   compareCountryId: SovereignCountryId;
@@ -253,13 +282,14 @@ function CountryCurveComparisonCard({
   primaryBps: number | null;
   compareBps: number | null;
   compareInsufficient: boolean;
+  pending?: boolean;
 }) {
   if (compareInsufficient) {
     return (
       <MetricCard
         title="2Y–10Y spread comparison"
         value="—"
-        subtext={RISK_SIGNAL_NOT_ENOUGH}
+        subtext={pending ? undefined : RISK_SIGNAL_NOT_ENOUGH}
       />
     );
   }
@@ -301,19 +331,21 @@ function RelativeRegimeCard({
   primaryLabel,
   compareLabel,
   regime,
+  pending = false,
 }: {
   primaryCountryId: SovereignCountryId;
   compareCountryId: SovereignCountryId;
   primaryLabel: string;
   compareLabel: string;
   regime: RelativeRegimeView;
+  pending?: boolean;
 }) {
   if (regime.state === "insufficient") {
     return (
       <MetricCard
         title="Relative regime"
         value="—"
-        subtext={RISK_SIGNAL_NOT_ENOUGH}
+        subtext={pending ? undefined : RISK_SIGNAL_NOT_ENOUGH}
       />
     );
   }
@@ -349,6 +381,8 @@ type TimeSummaryProps = {
   riskSignalChangeBps: number | null;
   y10: number | null;
   y10ChangeBps: number | null;
+  pending?: boolean;
+  fetching?: boolean;
 };
 
 type CountrySummaryProps = {
@@ -364,6 +398,7 @@ type CountrySummaryProps = {
   compareRiskInsufficient: boolean;
   spread10Bps: number | null;
   relativeRegime: RelativeRegimeView;
+  pending?: boolean;
 };
 
 export type YieldCurveSummaryCardsProps = TimeSummaryProps | CountrySummaryProps;
@@ -387,6 +422,7 @@ export function YieldCurveSummaryCards(props: YieldCurveSummaryCardsProps) {
       compareRiskInsufficient,
       spread10Bps,
       relativeRegime,
+      pending = false,
     } = props;
 
     const primaryShort = shortCountryLabel(primaryCountryId, primaryLabel);
@@ -403,6 +439,7 @@ export function YieldCurveSummaryCards(props: YieldCurveSummaryCardsProps) {
           countryLabel={primaryLabel}
           bps={primaryRiskBps}
           insufficient={primaryRiskInsufficient}
+          pending={pending}
         />
         <CountryCurveComparisonCard
           primaryCountryId={primaryCountryId}
@@ -412,11 +449,12 @@ export function YieldCurveSummaryCards(props: YieldCurveSummaryCardsProps) {
           primaryBps={primaryRiskBps}
           compareBps={compareRiskBps}
           compareInsufficient={primaryRiskInsufficient || compareRiskInsufficient}
+          pending={pending}
         />
         <MetricCard
           title={`10Y yield gap${periodSuffix}`}
           value={spread10Bps === null ? "—" : fmtRiskBps(spread10Bps)}
-          subtext={spread10Bps === null ? RISK_SIGNAL_NOT_ENOUGH : gapSub}
+          subtext={spread10Bps === null ? (pending ? undefined : RISK_SIGNAL_NOT_ENOUGH) : gapSub}
           header={
             <CountryPairLine
               primaryCountryId={primaryCountryId}
@@ -432,6 +470,7 @@ export function YieldCurveSummaryCards(props: YieldCurveSummaryCardsProps) {
           primaryLabel={primaryLabel}
           compareLabel={compareLabel}
           regime={relativeRegime}
+          pending={pending}
         />
       </div>
     );
@@ -448,6 +487,8 @@ export function YieldCurveSummaryCards(props: YieldCurveSummaryCardsProps) {
     riskSignalChangeBps,
     y10,
     y10ChangeBps,
+    pending = false,
+    fetching = false,
   } = props;
 
   const y10Secondary = vsPeriodSuffix(comparisonId, y10ChangeBps);
@@ -460,6 +501,8 @@ export function YieldCurveSummaryCards(props: YieldCurveSummaryCardsProps) {
         countryLabel={countryLabel}
         bps={riskSignalBps}
         insufficient={riskSignalInsufficient}
+        pending={pending}
+        fetching={fetching}
       />
       <TimeRiskComparisonCard
         comparisonId={comparisonId}
@@ -467,17 +510,22 @@ export function YieldCurveSummaryCards(props: YieldCurveSummaryCardsProps) {
         comparisonBps={riskSignalComparisonBps}
         changeBps={riskSignalChangeBps}
         insufficient={riskSignalInsufficient}
+        pending={pending}
+        fetching={fetching}
       />
       <MetricCard
         title="10Y yield"
-        value={fmtYieldPct(y10)}
-        subtext={y10 === null ? RISK_SIGNAL_NOT_ENOUGH : y10Secondary}
+        value={pending || y10 === null ? "—" : fmtYieldPct(y10)}
+        subtext={pending || y10 === null ? (pending ? undefined : RISK_SIGNAL_NOT_ENOUGH) : y10Secondary}
         header={<CountryIdentityLine countryId={countryId} label={countryLabel} />}
+        fetching={fetching}
       />
       <MarketRegimeCard
         countryId={countryId}
         countryLabel={countryLabel}
         regime={marketRegime}
+        pending={pending}
+        fetching={fetching}
       />
     </div>
   );

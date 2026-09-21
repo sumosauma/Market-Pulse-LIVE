@@ -23,11 +23,22 @@ export function YieldTableYieldCell({
   value,
   sourceType,
   loading,
+  neutral,
 }: {
   value: number | null;
   sourceType: YieldPointSourceType;
   loading?: boolean;
+  /** Fetch still in flight and this cell has no settled value yet. */
+  neutral?: boolean;
 }) {
+  if (neutral) {
+    return (
+      <div className="flex flex-col items-end py-0.5">
+        <span className="font-mono text-[13px] text-muted-foreground/40">—</span>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col items-end gap-1 py-0.5">
@@ -59,10 +70,15 @@ export function YieldTableYieldCell({
 export function YieldTableBpsCell({
   value,
   loading,
+  neutral,
 }: {
   value: number | null;
   loading?: boolean;
+  neutral?: boolean;
 }) {
+  if (neutral) {
+    return <span className="font-mono text-[13px] text-muted-foreground/40">—</span>;
+  }
   if (loading) {
     return <span className="font-mono text-[13px] italic text-muted-foreground">Loading…</span>;
   }

@@ -126,15 +126,20 @@ export async function fetchUkBankOfEnglandHistory(
 
   if (needsArchive) {
     console.log(`${LOG} Fetching nominal daily archive ZIP (earliest=${earliest ?? "none"} need<=${startIso})`);
-    const archiveZip = await fetchZipBuffer(BOE_NOMINAL_DAILY_ARCHIVE_ZIP_URL, "glcnominalddata.zip");
-    const allNames = extractZipEntries(archiveZip, () => true).map((e) => e.name);
-    const selected = new Set(selectBoeArchiveEntryNames(allNames, startYear));
-    const archiveEntries = extractZipEntries(archiveZip, (n) => selected.has(n));
+    try {
+      const archiveZip = await fetchZipBuffer(BOE_NOMINAL_DAILY_ARCHIVE_ZIP_URL, "glcnominalddata.zip");
+      const allNames = extractZipEntries(archiveZip, () => true).map((e) => e.name);
+      const selected = new Set(selectBoeArchiveEntryNames(allNames, startYear));
+      const archiveEntries = extractZipEntries(archiveZip, (n) => selected.has(n));
 
-    for (const entry of archiveEntries) {
-      const parsed = parseBoeNominalSpotXlsxBuffer(entry.data, entry.name);
-      mergeBoeDailyMaps(maps, parsed);
-      if (!sourceFiles.includes(entry.name)) sourceFiles.push(entry.name);
+      for (const entry of archiveEntries) {
+        const parsed = parseBoeNominalSpotXlsxBuffer(entry.data, entry.name);
+        mergeBoeDailyMaps(maps, parsed);
+        if (!sourceFiles.includes(entry.name)) sourceFiles.push(entry.name);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`${LOG} Archive ZIP unavailable — keeping latest-month curve: ${msg}`);
     }
   }
 

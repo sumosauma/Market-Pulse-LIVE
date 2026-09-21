@@ -42,11 +42,11 @@ export function YieldCurveCountryTable({
                 <YieldTableYieldCell
                   value={r.compareYield}
                   sourceType={r.compareSourceType}
-                  loading={compareLoading}
+                  neutral={compareLoading && r.compareYield == null}
                 />
               </td>
               <td className={`${TD} text-right`}>
-                <YieldTableBpsCell value={r.spreadBps} loading={compareLoading} />
+                <YieldTableBpsCell value={r.spreadBps} neutral={compareLoading && r.spreadBps == null} />
               </td>
             </tr>
           ))}

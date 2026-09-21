@@ -81,8 +81,14 @@ export type YieldCurveSnapshot = Readonly<{
     | "Millistream/DI"
     | "Norges Bank"
     | "Bank of England"
+    | "TradingView"
     | "ChinaBond / CCDC"
     | "Mock (illustrative)";
+  /**
+   * UK only. Historical comparison leg publisher when the current curve is TradingView.
+   * Absent on other countries.
+   */
+  comparisonSource?: "Bank of England" | "TradingView";
   updatedAt: string;
   points: YieldCurveSnapshotPoint[];
   /** Official maturities that failed to load this session (distinct from structurally missing). */
@@ -211,6 +217,8 @@ export type GetNorwayYieldHistoryResponse = Readonly<{
 }>;
 
 export type UkYieldDataSourceTag =
+  | "tv-live"
+  | "boe-fallback"
   | "boe-live"
   | "boe-disk-cache"
   | "browser-local-storage"

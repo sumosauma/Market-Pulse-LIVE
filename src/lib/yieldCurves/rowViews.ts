@@ -107,20 +107,34 @@ function rowFromSnapshotPoint(
   const methodologyNote = getMaturityMethodologyNote(countryId, maturity) ?? "";
   const unavailable = snapshot.unavailableMaturities;
 
-  const currentType = resolveMaturitySourceType(
+  const tradingViewCurrent = snapshot.source === "TradingView";
+  const currentPublisher = tradingViewCurrent ? "TradingView UK Government Bond Yields" : publisher;
+  const comparisonPublisher = tradingViewCurrent ? "TradingView UK Government Bond Yields" : publisher;
+  const currentNote = tradingViewCurrent
+    ? "Live UK government bond benchmark yield from TradingView. Not the Bank of England zero-coupon gilt spot curve."
+    : methodologyNote;
+  const comparisonNote = tradingViewCurrent
+    ? "Historical level of the same TradingView UK government bond benchmark. Not a Bank of England zero-coupon spot yield."
+    : methodologyNote;
+
+  let currentType = resolveMaturitySourceType(
     countryId,
     maturity,
     pt.currentYield,
     snapshot.source,
     unavailable,
   );
-  const comparisonType = resolveMaturitySourceType(
+  let comparisonType = resolveMaturitySourceType(
     countryId,
     maturity,
     pt.comparisonYield,
     snapshot.source,
     unavailable,
   );
+  if (tradingViewCurrent) {
+    currentType = pt.currentYield == null ? "unavailable" : "official";
+    comparisonType = pt.comparisonYield == null ? "unavailable" : "official";
+  }
 
   const current = pointForType(
     currentType,
@@ -129,8 +143,8 @@ function rowFromSnapshotPoint(
     years,
     pt.currentYield,
     snapshot.date,
-    publisher,
-    methodologyNote,
+    currentPublisher,
+    currentNote,
     snapshot,
   );
   const comparison = pointForType(
@@ -140,8 +154,8 @@ function rowFromSnapshotPoint(
     years,
     pt.comparisonYield,
     snapshot.comparisonDate,
-    publisher,
-    methodologyNote,
+    comparisonPublisher,
+    comparisonNote,
     snapshot,
   );
 

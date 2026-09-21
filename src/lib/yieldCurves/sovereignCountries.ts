@@ -168,7 +168,7 @@ export const SOVEREIGN_COUNTRY_GB: SovereignCountryConfig = {
     "2Y": "official",
     "5Y": "official",
     "10Y": "official",
-    "30Y": "missing",
+    "30Y": "official",
   }),
   isLive: true,
   defaultCurveType: "zeroCoupon",

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { EQUITY_MARKETS } from "./equityMarketsRegistry";
 import type { EquityHistoryPoint, EquityMarketQuote, EquityMarketsPayload, EquityMarketStatus } from "./types";
 import { change1dPercentFromDailyHistory } from "./equityDayChange";
-import { exchangeTzFromRow } from "./equityExchangeTz";
+import { exchangeLocalDateKey, exchangeTzFromRow, type ExchangeTz } from "./equityExchangeTz";
 import { readDayExtreme, resolveDayHighLow } from "./equityIntradaySession";
 import { deriveEquityMarketStatus } from "./equityMarketStatus";
 import {
@@ -19,6 +19,8 @@ import { fetchNqgiAvanzaQuote, isNqgiMarket } from "./sources/nqgiAvanzaSource";
 import { fetchNqzaFredYahooQuote, isNqzaMarket } from "./sources/nqzaFredSource";
 
 const FETCH_TIMEOUT_MS = 8_000;
+/** Yahoo's daily chart for CSI 300 currently returns a single bar. 30m still has sessions. */
+const CN_CSI300_YAHOO_TICKER = "000300.SS";
 
 type YahooChartJson = {
   chart?: {
@@ -87,6 +89,21 @@ function parseYahooIntradayPoints(result: YahooChartResult): EquityHistoryPoint[
   return points;
 }
 
+/** Last 30m close of each exchange-local session, oldest first. */
+function dailyHistoryFromIntradaySessions(
+  intraday: readonly EquityHistoryPoint[],
+  tz: ExchangeTz,
+): EquityHistoryPoint[] {
+  const byDate = new Map<string, number>();
+  for (const point of intraday) {
+    if (!Number.isFinite(point.price)) continue;
+    byDate.set(exchangeLocalDateKey(point.date, tz), point.price);
+  }
+  return [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, price]) => ({ date, price }));
+}
+
 function downsamplePoints(points: EquityHistoryPoint[], maxPoints = 90): EquityHistoryPoint[] {
   if (points.length <= maxPoints) return points;
   const out: EquityHistoryPoint[] = [];
@@ -143,20 +160,49 @@ async function fetchYahooIndex(
   const price = meta.regularMarketPrice;
   if (typeof price !== "number") throw new Error("No price");
 
-  const points = parseYahooDailyPoints(dailyChart);
+  let points = parseYahooDailyPoints(dailyChart);
   const allValidCloses = points.map((p) => p.price);
 
   let chartSeries = allValidCloses;
   let intraday: EquityHistoryPoint[] = [];
+  let rawIntraday: EquityHistoryPoint[] = [];
   let exchangeTz = readExchangeTz(meta);
   if (intradayResult.status === "fulfilled") {
     const intradayMeta = readExchangeTz(intradayResult.value.meta);
     if (intradayMeta.exchangeTimezoneName || intradayMeta.gmtoffset != null) {
       exchangeTz = intradayMeta;
     }
-    intraday = downsamplePoints(parseYahooIntradayPoints(intradayResult.value));
+    rawIntraday = parseYahooIntradayPoints(intradayResult.value);
+    intraday = downsamplePoints(rawIntraday);
     const closes = intraday.map((p) => p.price);
     if (closes.length >= 2) chartSeries = closes;
+  }
+
+  // China-only: Yahoo daily `000300.SS` is a one-bar print. Rebuild daily closes
+  // from Yahoo 30-minute bars so 1D % is not dropped. The 5d intraday chart is unchanged.
+  if (ticker === CN_CSI300_YAHOO_TICKER && points.length < 2) {
+    let sessionBars = rawIntraday;
+    try {
+      const longer = await fetchYahooChart(ticker, "30m", "60d");
+      const longerBars = parseYahooIntradayPoints(longer);
+      if (longerBars.length > sessionBars.length) {
+        const longerTz = readExchangeTz(longer.meta);
+        if (longerTz.exchangeTimezoneName || longerTz.gmtoffset != null) exchangeTz = longerTz;
+        sessionBars = longerBars;
+      }
+    } catch {
+      /* 5d session closes are enough for 1D */
+    }
+    const rebuilt = dailyHistoryFromIntradaySessions(
+      sessionBars,
+      exchangeTzFromRow({
+        ticker,
+        exchangeTimezoneName: exchangeTz.exchangeTimezoneName ?? "Asia/Shanghai",
+        gmtoffset: exchangeTz.gmtoffset,
+        timezone: exchangeTz.timezone,
+      }),
+    );
+    if (rebuilt.length >= 2) points = rebuilt;
   }
 
   const changePercent = change1dPercentFromDailyHistory(points, price);

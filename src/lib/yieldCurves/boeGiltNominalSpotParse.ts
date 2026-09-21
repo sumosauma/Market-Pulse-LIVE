@@ -32,6 +32,7 @@ export const BOE_HARMONIZED_GRID_TARGETS: readonly BoeGridTarget[] = [
   { maturity: "2Y", sheet: "4. spot curve", kind: "years", target: 2 },
   { maturity: "5Y", sheet: "4. spot curve", kind: "years", target: 5 },
   { maturity: "10Y", sheet: "4. spot curve", kind: "years", target: 10 },
+  { maturity: "30Y", sheet: "4. spot curve", kind: "years", target: 30 },
 ];
 
 export type BoeDailyByMaturity = Readonly<{

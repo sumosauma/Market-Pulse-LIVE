@@ -60,6 +60,27 @@ export function lastDecisionFromMeetingsAndSeries(
   return { changeBps: bps, dateIso: effective };
 }
 
+/**
+ * Last change from the official rate series when the meeting calendar is missing.
+ * Flat series → unchanged, dated at the start of the current print.
+ */
+export function lastDecisionFromSeries(series: RatePoint[]): LastDecision {
+  const sorted = [...series]
+    .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date) && Number.isFinite(p.value))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (!sorted.length) throw new Error("No rate observations");
+
+  const latest = sorted[sorted.length - 1]!;
+  let plateauStart = latest;
+  for (let i = sorted.length - 2; i >= 0; i--) {
+    const prev = sorted[i]!;
+    const bps = Math.round((latest.value - prev.value) * 100);
+    if (bps !== 0) return { changeBps: bps, dateIso: plateauStart.date };
+    plateauStart = prev;
+  }
+  return { changeBps: 0, dateIso: plateauStart.date };
+}
+
 /** Two consecutive dated rate prints/decisions (already one row per decision). */
 export function lastDecisionFromTwoPrints(latest: RatePoint, previous: RatePoint): LastDecision {
   const bps = Math.round((latest.value - previous.value) * 100);

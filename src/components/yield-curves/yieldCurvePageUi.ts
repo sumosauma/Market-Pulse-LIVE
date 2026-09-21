@@ -82,6 +82,16 @@ export function formatYieldSourceDisplay(
   }
 
   if (countryId === "GB") {
+    if (dataSourceTag === "tv-live") {
+      return { headline: "TradingView UK Government Bond Yields · Live", tone: "live" };
+    }
+    if (dataSourceTag === "boe-fallback") {
+      return {
+        headline: "Bank of England data · Fallback",
+        detail: "TradingView UK government bond yields unavailable.",
+        tone: "cached",
+      };
+    }
     if (dataSourceTag === "boe-live") {
       return { headline: "Bank of England data · Live", tone: "live" };
     }
