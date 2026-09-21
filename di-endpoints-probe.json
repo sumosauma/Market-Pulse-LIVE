@@ -1,0 +1,116 @@
+﻿{
+  "jsHits": {
+    "instrument-history": [
+      "e.next){case 0:return n=Ca.some((function(e){return t.includes(e)})),e.next=3,window.fetch(\"/market/instrument-history/\".concat(p.insref,\"/\").concat(n?\"inf/\":\"\"));case 3:if(!(r=e.sent).ok){e.next=12;break}return e.next=7,r.json();case 7:s=e.sent,o=null==p||null===(a=p.points)||vo"
+    ],
+    "ghostgraph": [
+      "r(;;)switch(e.prev=e.next){case 0:if(h[n]||!t){e.next=16;break}return e.next=3,window.fetch(\"/stock/ghostgraph/\".concat(n,\"/\"));case 3:if(!(a=e.sent).ok){e.next=14;break}return e.next=7,a.json();case 7:o=e.sent,i=null==o||null===(s=o[0])||void 0===s?void 0:s.points,l=V(i,p.points"
+    ],
+    "market/instrument": [
+      "ntsByTagName(\"tbody\")[0]:e[t].getElementsByTagName(\"tbody\")[0]:[]}var Ye=o({\"assets/scripts/plugins/market/instrumentTableGeneral.js\"(){Be(),ye(),Le=\"instrument-table__column--ascending\",ke=\"js_instrument-table--child\",je=\"js_instrument-table__column\",Ce=\"instrument-table__column",
+      "e[n]?e[n](a):a)})),o.push(c),a[l]=t,s[l]=r})))}))}l(Re,{default:()=>We});o({\"assets/scripts/plugins/market/instrumentTableMobile.js\"(){Ye()}});var Xe={};function ze(e){var t=e,n=\"true\"===t.dataset.sortable,r=\"true\"===t.dataset.backendSorted,a={},s=[],o=Te(t),i=Se(o),l=Oe(o);funct",
+      "[n](s):s)})),s.push(r),a[t.id]=t})))}))}l(Xe,{default:()=>ze});var Ve,qe=o({\"assets/scripts/plugins/market/instrumentTableDesktop.js\"(){Ye()}});var Ue,Ge,Je,Qe,$e,Ke,Ze,et,tt,nt,rt,at,st=o({\"assets/scripts/helpers/passiveIfPossible.js\"(){Ve=function(){var e=!1;try{var t=Object.de",
+      "_c--p\",\"i-t__c--n\"),e.classList.add(t>=0?\"i-t__c--p\":\"i-t__c--n\")}var Tt=o({\"assets/scripts/plugins/market/instrumentTableRealtimeTransform.js\"(){I(),q(),Be(),W(),yt=\"diff1d\",bt=\"diff1dprc\",wt=\"dayhighprice\",_t=\"daylowprice\",Et=\"quantity\",Lt=\"marketCap\",kt=\"swedishTime\",jt=_(_(_(",
+      "&&e.remove())})).catch((function(){}))}))}}l(Ir,{default:()=>Hr});var Fr=o({\"assets/scripts/plugins/market/instrumentTableLazyLoad.js\"(){de(),Ye(),en()}}),Yr={};function Rr(){var e=document.querySelectorAll(\".js_adblock-placeholder\");if(e&&e)for(var t=function(t){if(!r(e[t])){var",
+      "e.prev=e.next){case 0:return n=Ca.some((function(e){return t.includes(e)})),e.next=3,window.fetch(\"/market/instrument-history/\".concat(p.insref,\"/\").concat(n?\"inf/\":\"\"));case 3:if(!(r=e.sent).ok){e.next=12;break}return e.next=7,r.json();case 7:s=e.sent,o=null==p||null===(a=p.poin"
+    ],
+    "insref": [
+      "jt,Ct,xt=o({\"assets/scripts/plugins/market/realtimeModal.js\"(){pt()}});function Nt(e){if(null!=e&&e.insref){var t=document.getElementById(\"ins_\".concat(e.insref));if(t){var n=\"/bors/vinnare-forlorare/\"===window.location.pathname?Ct:jt,r=Object.keys(e).filter((function(e){return v",
+      "al.js\"(){pt()}});function Nt(e){if(null!=e&&e.insref){var t=document.getElementById(\"ins_\".concat(e.insref));if(t){var n=\"/bors/vinnare-forlorare/\"===window.location.pathname?Ct:jt,r=Object.keys(e).filter((function(e){return void 0!==(null==n?void 0:n[e])})),a=t.getElementsByTagN",
+      "=this;this.interval=setInterval((function(){e.socket.send(\"2\")}),3e4)}}])}()}});function Vt(e){if(e.insref===Ht){var t=document.getElementsByClassName(\"js_instrument-details\")[0],n=t.getElementsByClassName(\"js_instrument-details__price\")[0],r=t.getElementsByClassName(\"js_instrume",
+      ".length||e.length<7)return!0;var n,r=tr(e);try{for(r.s();!(n=r.n()).done;){if(n.value.getAttribute(\"insref\")===t)return!0}}catch(e){r.e(e)}finally{r.f()}return!1}var or,ir=o({\"assets/scripts/plugins/market/portfolio/updatePortfolioFavoritesWidget.js\"(){f(),Zn=c(h(),1)}}),lr={};fu",
+      "var l=[],c=null!==(n=null==i?void 0:i.initial)&&void 0!==n?n:{},u=c.name,f=c.currency,m=c.points,p={insref:i.insref,name:u,currency:f,points:{\"1d\":m},lastDataPointY:null==m||null===(r=m[(null==m?void 0:m.length)-1])||void 0===r?void 0:r[1],lastDataPointX:null==m||null===(a=m[(nul",
+      "c=null!==(n=null==i?void 0:i.initial)&&void 0!==n?n:{},u=c.name,f=c.currency,m=c.points,p={insref:i.insref,name:u,currency:f,points:{\"1d\":m},lastDataPointY:null==m||null===(r=m[(null==m?void 0:m.length)-1])||void 0===r?void 0:r[1],lastDataPointX:null==m||null===(a=m[(null==m?void",
+      "e((function(e){return t.includes(e)})),e.next=3,window.fetch(\"/market/instrument-history/\".concat(p.insref,\"/\").concat(n?\"inf/\":\"\"));case 3:if(!(r=e.sent).ok){e.next=12;break}return e.next=7,r.json();case 7:s=e.sent,o=null==p||null===(a=p.points)||void 0===a?void 0:a[\"1d\"],p.poin",
+      "|void 0===s?void 0:s.points,l=V(i,p.points[\"1d\"]),(c=X(o[1].points,!0,i[i.length-1]))[\"1d\"]=l,h[n]={insref:n,status:t,color:r,history:c},z();case 14:e.next=17;break;case 16:h[n]||t?(h[n].status=t,z()):(h[n]={insref:n,status:t,trades:[],history:[]},z());case 17:case\"end\":return e."
+    ],
+    "Millistream": []
+  },
+  "endpointTests": [
+    {
+      "label": "GET instrument-history bare",
+      "url": "https://www.di.se/market/instrument-history/",
+      "method": "GET",
+      "status": 404,
+      "ct": "text/html; charset=utf-8",
+      "len": 345129,
+      "isJson": false,
+      "preview": "<!doctype html><html lang=\"sv\" class=\"no-js\"><head><meta charset=\"utf-8\"><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"theme-color\" content=\"#a7100c\"><link rel=\"apple-touch-icon\" href=\"https://static.bonniernews.se/gcs/di-dise/flamingo/apple-touch-icon-180x180.png\"><meta name=\"contentId\" content=\"404\"><meta name"
+    },
+    {
+      "label": "POST instrument-history insref",
+      "url": "https://www.di.se/market/instrument-history/",
+      "method": "POST",
+      "status": 404,
+      "ct": "text/html; charset=utf-8",
+      "len": 166,
+      "isJson": false,
+      "preview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot POST /market/instrument-history/</pre>\n</body>\n</html>\n"
+    },
+    {
+      "label": "POST instrument-history json body",
+      "url": "https://www.di.se/market/instrument-history/",
+      "method": "POST",
+      "status": 404,
+      "ct": "text/html; charset=utf-8",
+      "len": 166,
+      "isJson": false,
+      "preview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot POST /market/instrument-history/</pre>\n</body>\n</html>\n"
+    },
+    {
+      "label": "GET ghostgraph",
+      "url": "https://www.di.se/stock/ghostgraph/?insref=72823",
+      "method": "GET",
+      "status": 404,
+      "ct": "text/html; charset=utf-8",
+      "len": 345498,
+      "isJson": false,
+      "preview": "<!doctype html><html lang=\"sv\" class=\"no-js\"><head><meta charset=\"utf-8\"><meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"theme-color\" content=\"#a7100c\"><link rel=\"apple-touch-icon\" href=\"https://static.bonniernews.se/gcs/di-dise/flamingo/apple-touch-icon-180x180.png\"><meta name=\"contentId\" content=\"404\"><meta name"
+    },
+    {
+      "label": "POST ghostgraph",
+      "url": "https://www.di.se/stock/ghostgraph/",
+      "method": "POST",
+      "status": 404,
+      "ct": "text/html; charset=utf-8",
+      "len": 157,
+      "isJson": false,
+      "preview": "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<title>Error</title>\n</head>\n<body>\n<pre>Cannot POST /stock/ghostgraph/</pre>\n</body>\n</html>\n"
+    }
+  ],
+  "pages": [
+    {
+      "name": "SP500",
+      "url": "https://www.di.se/bors/index/inx-72823/",
+      "asOf": null,
+      "headline": "2",
+      "pct": "100",
+      "unitSnippet": "percent"
+    },
+    {
+      "name": "US10Y",
+      "url": "https://www.di.se/rantor/us10y-4733793/",
+      "asOf": null,
+      "headline": "2",
+      "pct": "100",
+      "unitSnippet": "percent"
+    },
+    {
+      "name": "Gold",
+      "url": "https://www.di.se/ravaror/xauusd-4606816/",
+      "asOf": null,
+      "headline": "2",
+      "pct": "100",
+      "unitSnippet": "percent"
+    },
+    {
+      "name": "Brent",
+      "url": "https://www.di.se/ravaror/ukoilusd-4606814/",
+      "asOf": null,
+      "headline": "2",
+      "pct": "100",
+      "unitSnippet": "percent"
+    }
+  ],
+  "probedAt": "2026-05-26T21:38:51.223Z"
+}

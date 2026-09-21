@@ -1,0 +1,225 @@
+﻿{
+  "probedAt": "2026-05-26T15:03:09.590Z",
+  "SP500": {
+    "pageUrl": "https://www.di.se/bors/index/inx-72823/",
+    "diSymbol": "INX",
+    "slugId": "72823",
+    "pageStatus": 200,
+    "accessibleWithoutLogin": true,
+    "loginPromptPresent": true,
+    "millistreamDisclaimer": true,
+    "htmlPatterns": {
+      "urls": [
+        "https://cmp.bonniernews.se/api",
+        "https://code.highcharts.com/highcharts.js"
+      ],
+      "insrefs": [
+        "72823"
+      ],
+      "hasNextData": false,
+      "embeddedJsonSnippet": null
+    },
+    "apiCandidates": [
+      {
+        "url": "https://api.millistream.com/mws/?cmd=quote&insref=72823&format=json",
+        "status": "ERR",
+        "error": "fetch failed"
+      },
+      {
+        "url": "https://api.millistream.com/mws/?cmd=history&insref=72823&format=json",
+        "status": "ERR",
+        "error": "fetch failed"
+      }
+    ],
+    "apiCandidates404Count": 14
+  },
+  "US10Y": {
+    "pageUrl": "https://www.di.se/rantor/us10y-4733793/",
+    "diSymbol": "US10Y",
+    "slugId": "4733793",
+    "pageStatus": 200,
+    "accessibleWithoutLogin": true,
+    "loginPromptPresent": true,
+    "millistreamDisclaimer": true,
+    "htmlPatterns": {
+      "urls": [
+        "https://cmp.bonniernews.se/api",
+        "https://code.highcharts.com/highcharts.js"
+      ],
+      "insrefs": [
+        "4733793"
+      ],
+      "hasNextData": false,
+      "embeddedJsonSnippet": null
+    },
+    "apiCandidates": [
+      {
+        "url": "https://api.millistream.com/mws/?cmd=quote&insref=4733793&format=json",
+        "status": "ERR",
+        "error": "fetch failed"
+      },
+      {
+        "url": "https://api.millistream.com/mws/?cmd=history&insref=4733793&format=json",
+        "status": "ERR",
+        "error": "fetch failed"
+      }
+    ],
+    "apiCandidates404Count": 14
+  },
+  "Gold": {
+    "pageUrl": "https://www.di.se/ravaror/xauusd-4606816/",
+    "diSymbol": "XAUUSD",
+    "slugId": "4606816",
+    "pageStatus": 200,
+    "accessibleWithoutLogin": true,
+    "loginPromptPresent": true,
+    "millistreamDisclaimer": true,
+    "htmlPatterns": {
+      "urls": [
+        "https://cmp.bonniernews.se/api",
+        "https://code.highcharts.com/highcharts.js"
+      ],
+      "insrefs": [
+        "4606816"
+      ],
+      "hasNextData": false,
+      "embeddedJsonSnippet": null
+    },
+    "apiCandidates": [
+      {
+        "url": "https://api.millistream.com/mws/?cmd=quote&insref=4606816&format=json",
+        "status": "ERR",
+        "error": "fetch failed"
+      },
+      {
+        "url": "https://api.millistream.com/mws/?cmd=history&insref=4606816&format=json",
+        "status": "ERR",
+        "error": "fetch failed"
+      }
+    ],
+    "apiCandidates404Count": 14
+  },
+  "Brent": {
+    "pageUrl": "https://www.di.se/ravaror/ukoilusd-4606814/",
+    "diSymbol": "UKOILUSD",
+    "slugId": "4606814",
+    "pageStatus": 200,
+    "accessibleWithoutLogin": true,
+    "loginPromptPresent": true,
+    "millistreamDisclaimer": true,
+    "htmlPatterns": {
+      "urls": [
+        "https://cmp.bonniernews.se/api",
+        "https://code.highcharts.com/highcharts.js"
+      ],
+      "insrefs": [
+        "4606814"
+      ],
+      "hasNextData": false,
+      "embeddedJsonSnippet": null
+    },
+    "apiCandidates": [
+      {
+        "url": "https://www.di.se/api/chart/4606814",
+        "status": "ERR",
+        "error": "terminated"
+      },
+      {
+        "url": "https://api.millistream.com/mws/?cmd=quote&insref=4606814&format=json",
+        "status": "ERR",
+        "error": "fetch failed"
+      },
+      {
+        "url": "https://api.millistream.com/mws/?cmd=history&insref=4606814&format=json",
+        "status": "ERR",
+        "error": "fetch failed"
+      }
+    ],
+    "apiCandidates404Count": 13
+  },
+  "references": {
+    "yahooGspc": {
+      "price": 7519.12,
+      "prevClose": 7473.47021484375,
+      "changePct": 0.6108244743597242
+    },
+    "yahooTnx": {
+      "price": 4.493,
+      "prevClose": 4.558000087738037,
+      "changePct": -1.4260659606589403
+    },
+    "yahooBz": {
+      "price": 96.59,
+      "prevClose": 103.54000091552734,
+      "changePct": -6.7123825131095645
+    },
+    "yahooGc": {
+      "price": 4507.3,
+      "prevClose": 4521,
+      "changePct": -0.303030303030299
+    },
+    "goldApi": {
+      "status": 200,
+      "contentType": "application/json",
+      "json": {
+        "currency": "USD",
+        "currencySymbol": "$",
+        "exchangeRate": 1,
+        "name": "Gold",
+        "price": 4508.399902,
+        "symbol": "XAU",
+        "updatedAt": "2026-05-26T21:36:47Z",
+        "updatedAtReadable": "a few seconds ago"
+      },
+      "textPreview": "{\"currency\":\"USD\",\"currencySymbol\":\"$\",\"exchangeRate\":1.0,\"name\":\"Gold\",\"price\":4508.399902,\"symbol\":\"XAU\",\"updatedAt\":\"2026-05-26T21:36:47Z\",\"updatedAtReadable\":\"a few seconds ago\"}"
+    },
+    "fredSp500": [
+      {
+        "date": "2026-05-22",
+        "value": 7473.47
+      },
+      {
+        "date": "2026-05-21",
+        "value": 7445.72
+      },
+      {
+        "date": "2026-05-20",
+        "value": 7432.97
+      }
+    ],
+    "fredDgs10": [
+      {
+        "date": "2026-05-22",
+        "value": 4.56
+      },
+      {
+        "date": "2026-05-21",
+        "value": 4.57
+      },
+      {
+        "date": "2026-05-20",
+        "value": 4.57
+      }
+    ]
+  },
+  "overviewPages": {
+    "indexOverview": {
+      "status": 200,
+      "accessible": true,
+      "millistream": true,
+      "hasTable": true
+    },
+    "ratesOverview": {
+      "status": 200,
+      "accessible": true,
+      "millistream": true,
+      "hasTable": true
+    },
+    "commoditiesOverview": {
+      "status": 200,
+      "accessible": true,
+      "millistream": true,
+      "hasTable": true
+    }
+  }
+}

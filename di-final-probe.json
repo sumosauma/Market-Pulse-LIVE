@@ -1,0 +1,279 @@
+﻿{
+  "probedAt": "2026-05-26T21:39:47.573Z",
+  "refs": {
+    "yahooGspc": {
+      "price": 7519.12,
+      "prevClose": 7403.05,
+      "time": "2026-05-26T20:43:52.000Z"
+    },
+    "yahooTnx": {
+      "price": 4.493,
+      "prevClose": 4.572,
+      "time": "2026-05-26T18:59:52.000Z"
+    },
+    "yahooBz": {
+      "price": 96.59,
+      "prevClose": 105.02,
+      "time": "2026-05-26T20:59:30.000Z"
+    },
+    "yahooGc": {
+      "price": 4507.3,
+      "prevClose": 4531.3,
+      "time": "2026-05-26T20:59:58.000Z"
+    },
+    "goldApi": {
+      "currency": "USD",
+      "currencySymbol": "$",
+      "exchangeRate": 1,
+      "name": "Gold",
+      "price": 4508.399902,
+      "symbol": "XAU",
+      "updatedAt": "2026-05-26T21:39:17Z",
+      "updatedAtReadable": "a few seconds ago"
+    },
+    "fredSp500": {
+      "note": "no FRED_API_KEY"
+    },
+    "fredDgs10": {
+      "note": "no FRED_API_KEY"
+    }
+  },
+  "results": [
+    {
+      "name": "SP500",
+      "insref": "72823",
+      "page": {
+        "asOf": null,
+        "headline": null,
+        "pct": null
+      },
+      "diSymbol": "INX",
+      "endpoints": {
+        "history": {
+          "url": "https://www.di.se/market/instrument-history/72823/",
+          "status": 200,
+          "ct": "application/json; charset=utf-8",
+          "name": "S&P 500",
+          "last": {
+            "ts": 1779821910000,
+            "iso": "2026-05-26T18:58:30.000Z",
+            "val": 7519.12,
+            "count": 11657
+          },
+          "recent7d": {
+            "recentCount": 5,
+            "first": [
+              1779217140000,
+              7353.61
+            ],
+            "last": [
+              1779821910000,
+              7519.12
+            ]
+          }
+        },
+        "ghostgraph": {
+          "url": "https://www.di.se/stock/ghostgraph/72823/",
+          "status": 200,
+          "ct": "application/json; charset=utf-8",
+          "name": "S&P 500",
+          "last": {
+            "ts": 1779825780000,
+            "iso": "2026-05-26T20:03:00.000Z",
+            "val": 7519.12,
+            "count": 132
+          },
+          "recent1d": {
+            "recentCount": 132,
+            "first": [
+              1779802200000,
+              7514.84
+            ],
+            "last": [
+              1779825780000,
+              7519.12
+            ]
+          }
+        }
+      },
+      "noAuthNoCookies": true
+    },
+    {
+      "name": "US10Y",
+      "insref": "4733793",
+      "page": {
+        "asOf": null,
+        "headline": null,
+        "pct": null
+      },
+      "diSymbol": "US10Y",
+      "endpoints": {
+        "history": {
+          "url": "https://www.di.se/market/instrument-history/4733793/",
+          "status": 200,
+          "ct": "application/json; charset=utf-8",
+          "name": "US 10 Year Bond",
+          "last": {
+            "ts": 1779724800000,
+            "iso": "2026-05-25T16:00:00.000Z",
+            "val": 4.56,
+            "count": 7129
+          },
+          "recent7d": {
+            "recentCount": 6,
+            "first": [
+              1779120000000,
+              4.6
+            ],
+            "last": [
+              1779724800000,
+              4.56
+            ]
+          }
+        },
+        "ghostgraph": {
+          "url": "https://www.di.se/stock/ghostgraph/4733793/",
+          "status": 200,
+          "ct": "application/json; charset=utf-8",
+          "name": "US 10 Year Bond",
+          "last": {
+            "ts": 1779809220000,
+            "iso": "2026-05-26T15:27:00.000Z",
+            "val": 4.51,
+            "count": 169
+          },
+          "recent1d": {
+            "recentCount": 169,
+            "first": [
+              1779774120000,
+              4.51
+            ],
+            "last": [
+              1779809220000,
+              4.51
+            ]
+          }
+        }
+      },
+      "noAuthNoCookies": true
+    },
+    {
+      "name": "Gold",
+      "insref": "4606816",
+      "page": {
+        "asOf": null,
+        "headline": null,
+        "pct": null
+      },
+      "diSymbol": "XAUUSD",
+      "endpoints": {
+        "history": {
+          "url": "https://www.di.se/market/instrument-history/4606816/",
+          "status": 200,
+          "ct": "application/json; charset=utf-8",
+          "name": "Gold",
+          "last": {
+            "ts": 1779735540000,
+            "iso": "2026-05-25T18:59:00.000Z",
+            "val": 4570.78,
+            "count": 4761
+          },
+          "recent7d": {
+            "recentCount": 6,
+            "first": [
+              1779130740000,
+              4565.82
+            ],
+            "last": [
+              1779735540000,
+              4570.78
+            ]
+          }
+        },
+        "ghostgraph": {
+          "url": "https://www.di.se/stock/ghostgraph/4606816/",
+          "status": 200,
+          "ct": "application/json; charset=utf-8",
+          "name": "Gold",
+          "last": {
+            "ts": 1779829020000,
+            "iso": "2026-05-26T20:57:00.000Z",
+            "val": 4507.35,
+            "count": 420
+          },
+          "recent1d": {
+            "recentCount": 420,
+            "first": [
+              1779753600000,
+              4549.67
+            ],
+            "last": [
+              1779829020000,
+              4507.35
+            ]
+          }
+        }
+      },
+      "noAuthNoCookies": true
+    },
+    {
+      "name": "Brent",
+      "insref": "4606814",
+      "page": {
+        "asOf": null,
+        "headline": null,
+        "pct": null
+      },
+      "diSymbol": "UKOILUSD",
+      "endpoints": {
+        "history": {
+          "url": "https://www.di.se/market/instrument-history/4606814/",
+          "status": 200,
+          "ct": "application/json; charset=utf-8",
+          "name": "Oil (Brent)",
+          "last": {
+            "ts": 1779821940000,
+            "iso": "2026-05-26T18:59:00.000Z",
+            "val": 96.75,
+            "count": 9965
+          },
+          "recent7d": {
+            "recentCount": 6,
+            "first": [
+              1779217140000,
+              107.87
+            ],
+            "last": [
+              1779821940000,
+              96.75
+            ]
+          }
+        },
+        "ghostgraph": {
+          "url": "https://www.di.se/stock/ghostgraph/4606814/",
+          "status": 200,
+          "ct": "application/json; charset=utf-8",
+          "name": "Oil (Brent)",
+          "last": {
+            "ts": 1779829020000,
+            "iso": "2026-05-26T20:57:00.000Z",
+            "val": 96.78,
+            "count": 419
+          },
+          "recent1d": {
+            "recentCount": 419,
+            "first": [
+              1779753780000,
+              95.12
+            ],
+            "last": [
+              1779829020000,
+              96.78
+            ]
+          }
+        }
+      },
+      "noAuthNoCookies": true
+    }
+  ]
+}
