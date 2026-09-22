@@ -157,6 +157,23 @@
   .bg-neg-soft { background-color: var(--neg-soft); }
 }
 
+/* Smooth vector spinner. Compositor-only rotation, no stepped frames. */
+@keyframes yc-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.yc-spin {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: yc-spin 0.75s linear infinite;
+  will-change: transform;
+}
+
 /* TV-style rolling news ticker (explicit light-on-dark; not theme foreground) */
 @keyframes news-ticker-scroll {
   from {

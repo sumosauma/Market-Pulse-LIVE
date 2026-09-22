@@ -154,7 +154,7 @@ export function YieldCurveRiskSignalScale({
         {TICKS.map((tick) => (
           <span
             key={tick}
-            className="absolute -translate-x-1/2 font-mono text-[10px] font-medium tabular-nums tracking-tight text-muted-foreground"
+            className="absolute -translate-x-1/2 font-mono text-[11px] font-medium tabular-nums tracking-tight text-foreground/70"
             style={{ left: `${riskSignalScalePosition(tick)}%` }}
           >
             {tick}

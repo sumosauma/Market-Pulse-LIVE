@@ -161,7 +161,7 @@ export function CountryIdentityLine({
   label: string;
 }) {
   return (
-    <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/90">
+    <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-foreground">
       <SovereignCountryFlag countryId={countryId} />
       <span>{label}</span>
     </p>
@@ -180,10 +180,10 @@ export function CountryPairLine({
   compareLabel: string;
 }) {
   return (
-    <p className="mt-2 inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground/90">
+    <p className="mt-2 inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] font-medium text-foreground">
       <SovereignCountryFlag countryId={primaryCountryId} />
       <span>{primaryLabel}</span>
-      <span className="text-muted-foreground/55">vs</span>
+      <span className="text-foreground/80">vs</span>
       <SovereignCountryFlag countryId={compareCountryId} />
       <span>{compareLabel}</span>
     </p>

@@ -1,21 +1,31 @@
-import { YIELD_CURVE_MATURITIES, type YieldCurveRowView } from "@/lib/yieldCurves/types";
+import { YIELD_CURVE_MATURITIES, type YieldCurveRowView, type YieldMaturity } from "@/lib/yieldCurves/types";
+import { YieldCurveTableLoadingOverlay } from "./YieldCurveFetchSpinner";
 import { YieldTableBpsCell, YieldTableYieldCell } from "./YieldCurveTableCells";
 
 const TH =
   "px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground";
 const TD = "px-4 py-2 align-middle";
 
+function QuietValueCell() {
+  return (
+    <td className={TD}>
+      <span className="inline-block min-h-5" />
+    </td>
+  );
+}
+
 export function YieldCurveTable({
   rows,
-  pending = false,
+  fetching = false,
 }: {
   rows: YieldCurveRowView[];
-  /** Request in flight and there is no curve to keep on screen yet. */
-  pending?: boolean;
+  fetching?: boolean;
 }) {
-  const blank = pending && rows.length === 0;
+  const maturities: readonly YieldMaturity[] = rows.length
+    ? rows.map((r) => r.maturity)
+    : YIELD_CURVE_MATURITIES;
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[520px] border-collapse">
         <thead>
           <tr className="border-b border-border bg-muted/30">
@@ -26,21 +36,15 @@ export function YieldCurveTable({
           </tr>
         </thead>
         <tbody>
-          {blank
-            ? YIELD_CURVE_MATURITIES.map((maturity) => (
+          {fetching
+            ? maturities.map((maturity) => (
                 <tr key={maturity} className="border-b border-border/60">
                   <td className={`${TD} font-mono text-[13px] font-medium text-foreground`}>
                     {maturity}
                   </td>
-                  <td className={`${TD} text-right`}>
-                    <YieldTableYieldCell value={null} sourceType="official" neutral />
-                  </td>
-                  <td className={`${TD} text-right`}>
-                    <YieldTableYieldCell value={null} sourceType="official" neutral />
-                  </td>
-                  <td className={`${TD} text-right`}>
-                    <YieldTableBpsCell value={null} neutral />
-                  </td>
+                  <QuietValueCell />
+                  <QuietValueCell />
+                  <QuietValueCell />
                 </tr>
               ))
             : rows.map((r) => (
@@ -61,6 +65,7 @@ export function YieldCurveTable({
               ))}
         </tbody>
       </table>
+      {fetching ? <YieldCurveTableLoadingOverlay /> : null}
       <p className="border-t border-border/40 px-4 py-3 text-[11px] leading-relaxed text-muted-foreground">
         Missing maturities are not estimated. “Not published” = absent from the official harmonized grid.
       </p>

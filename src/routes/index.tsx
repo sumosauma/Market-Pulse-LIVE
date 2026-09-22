@@ -17,6 +17,7 @@ import { MACRO_PULSE_SCHEMA_VERSION } from "@/lib/macroPulse/types";
 import { getPolicyRates, POLICY_RATES_QUERY_KEY } from "@/lib/policyRates/policyRates.functions";
 import { Sparkline } from "@/components/Sparkline";
 import { OverviewInstrumentGlyph } from "@/components/OverviewInstrumentGlyph";
+import { YieldCurveFetchSpinner } from "@/components/yield-curves/YieldCurveFetchSpinner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -164,29 +165,29 @@ function OverviewCard({
   q,
   quoteLabel,
   displayLabel,
+  loading = false,
 }: {
   q: Quote | undefined;
   quoteLabel: string;
   displayLabel: string;
+  loading?: boolean;
 }) {
   if (!q) {
     return (
       <div className="min-w-0 w-full rounded-md border border-border bg-card p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 pt-px">
-            <OverviewInstrumentGlyph label={quoteLabel} />
-            <div className="min-w-0 truncate text-[10.5px] font-semibold uppercase tracking-wider text-foreground/70">
-              {displayLabel}
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-1 text-right pt-px">
-            <div className="text-[12px] font-mono font-semibold uppercase tracking-wider text-foreground/65 leading-none">
-              Today
-            </div>
-            <div className="text-[14px] font-mono font-semibold tabular-nums leading-none text-foreground/55">—</div>
+        <div className="flex min-w-0 items-center gap-1.5 pt-px">
+          <OverviewInstrumentGlyph label={quoteLabel} />
+          <div className="min-w-0 truncate text-[10.5px] font-semibold uppercase tracking-wider text-foreground/70">
+            {displayLabel}
           </div>
         </div>
-        <div className="mt-2 text-[16px] font-mono tabular-nums font-medium text-foreground/55 leading-none">N/A</div>
+        <div className="mt-3 flex min-h-10 items-center justify-center">
+          {loading ? (
+            <YieldCurveFetchSpinner />
+          ) : (
+            <div className="text-[16px] font-mono tabular-nums font-medium leading-none text-foreground/55">N/A</div>
+          )}
+        </div>
       </div>
     );
   }
@@ -442,7 +443,7 @@ function DashboardPage() {
   const fetchMarkets = useServerFn(getMarkets);
   const fetchMacroPulse = useServerFn(getMacroPulse);
   const fetchPolicyRates = useServerFn(getPolicyRates);
-  const { data, isLoading, isFetching, refetch } = useQuery({
+  const { data, isPending, isFetching, refetch } = useQuery({
     queryKey: MARKETS_QUERY_KEY,
     queryFn: () => fetchMarkets(),
     refetchInterval: 60_000,
@@ -461,6 +462,7 @@ function DashboardPage() {
     refetchInterval: 60 * 60 * 1000,
   });
   const quotes = data?.quotes ?? [];
+  const marketsLoading = !data && isPending;
 
   return (
     <PageShell
@@ -483,10 +485,6 @@ function DashboardPage() {
         </div>
       }
     >
-      {isLoading && (
-        <div className="text-[12px] font-medium text-foreground/70">Loading market data…</div>
-      )}
-
       <section className="mb-5 @container">
         <div className="mb-2 flex items-baseline justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-foreground">
@@ -509,6 +507,7 @@ function DashboardPage() {
               q={findOverviewQuote(quotes, row)}
               quoteLabel={row.quoteLabel}
               displayLabel={row.displayLabel}
+              loading={marketsLoading}
             />
           ))}
         </div>

@@ -1,4 +1,5 @@
-import type { YieldCurveCountryCompareRow } from "@/lib/yieldCurves/types";
+import { YIELD_CURVE_MATURITIES, type YieldCurveCountryCompareRow } from "@/lib/yieldCurves/types";
+import { YieldCurveTableLoadingOverlay } from "./YieldCurveFetchSpinner";
 import { YieldTableBpsCell, YieldTableYieldCell } from "./YieldCurveTableCells";
 
 const TH =
@@ -10,16 +11,19 @@ export function YieldCurveCountryTable({
   primaryLabel,
   compareLabel,
   compareLoading = false,
+  fetching = false,
   periodLabel = "current levels",
 }: {
   rows: YieldCurveCountryCompareRow[];
   primaryLabel: string;
   compareLabel: string;
   compareLoading?: boolean;
+  fetching?: boolean;
   periodLabel?: string;
 }) {
+  const maturities = rows.length ? rows.map((r) => r.maturity) : YIELD_CURVE_MATURITIES;
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full min-w-[560px] border-collapse">
         <thead>
           <tr className="border-b border-border bg-muted/30">
@@ -30,7 +34,18 @@ export function YieldCurveCountryTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {fetching
+            ? maturities.map((maturity) => (
+                <tr key={maturity} className="border-b border-border/60">
+                  <td className={`${TD} font-mono text-[13px] font-medium text-foreground`}>
+                    {maturity}
+                  </td>
+                  <td className={TD} />
+                  <td className={TD} />
+                  <td className={TD} />
+                </tr>
+              ))
+            : rows.map((r) => (
             <tr key={r.maturity} className="border-b border-border/60 hover:bg-muted/15">
               <td className={`${TD} font-mono text-[13px] font-medium text-foreground`}>
                 {r.maturity}
@@ -52,6 +67,7 @@ export function YieldCurveCountryTable({
           ))}
         </tbody>
       </table>
+      {fetching ? <YieldCurveTableLoadingOverlay /> : null}
       <p className="border-t border-border/40 px-4 py-3 text-[11px] leading-relaxed text-muted-foreground">
         Yields shown at <span className="font-medium text-foreground/80">{periodLabel}</span>. Spread
         = {primaryLabel} yield minus {compareLabel} yield at each maturity. Missing points are not

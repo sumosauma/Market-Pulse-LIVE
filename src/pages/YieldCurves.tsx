@@ -1,11 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { PageShell, Panel } from "@/components/PageShell";
 import { YieldCurveChart } from "@/components/yield-curves/YieldCurveChart";
 import { YieldCurveCountryChart } from "@/components/yield-curves/YieldCurveCountryChart";
 import { YieldCurveCountryTable } from "@/components/yield-curves/YieldCurveCountryTable";
 import { YieldCurveInterpretation } from "@/components/yield-curves/YieldCurveInterpretation";
 import { YieldCurveSummaryCards } from "@/components/yield-curves/YieldCurveSummaryCards";
-import type { YieldCurveSummaryCardsProps } from "@/components/yield-curves/YieldCurveSummaryCards";
 import { YieldCurveTable } from "@/components/yield-curves/YieldCurveTable";
 import { YieldCurveDataNotes, YieldCurvePanelEmpty } from "@/components/yield-curves/YieldCurveDataNotes";
 import { YieldCurveFetchSpinner } from "@/components/yield-curves/YieldCurveFetchSpinner";
@@ -277,6 +276,7 @@ export default function YieldCurvesPage() {
   const curveFetching = isCountryMode
     ? primaryQ.isFetching || compareQ.isFetching
     : q.isFetching;
+  const showTimeLoading = !isCountryMode && q.isFetching;
   const awaitingTime = !isCountryMode && !ui && (q.isFetching || q.isPending);
   const awaitingPrimary =
     isCountryMode && !primaryUi && (primaryQ.isFetching || primaryQ.isPending);
@@ -284,10 +284,6 @@ export default function YieldCurvesPage() {
   const compareLoadingCountry =
     isCountryMode && !compareUi && (compareQ.isFetching || compareQ.isPending);
   const summaryPending = isCountryMode ? awaitingPrimary || compareLoadingCountry : awaitingTime;
-
-  const lastTimeSummary = useRef<Extract<YieldCurveSummaryCardsProps, { variant: "time" }> | null>(
-    null,
-  );
 
   const seUnavailableMaturities = useMemo((): YieldMaturity[] => {
     const sourceRows = isCountryMode ? (seUi?.rows ?? []) : countryId === "SE" ? rows : [];
@@ -363,38 +359,14 @@ export default function YieldCurvesPage() {
             ? "China"
             : "United States";
 
-  const timeSummaryLive: Extract<YieldCurveSummaryCardsProps, { variant: "time" }> = {
-    variant: "time",
-    comparisonId,
-    countryId,
-    countryLabel,
-    marketRegime,
-    riskSignalBps: timeRisk.bps,
-    riskSignalComparisonBps: timeRiskComparison,
-    riskSignalInsufficient: timeRisk.insufficient,
-    riskSignalChangeBps: timeRiskChange,
-    y10,
-    y10ChangeBps,
-  };
-  if (!isCountryMode && ui && !q.isFetching) {
-    lastTimeSummary.current = timeSummaryLive;
-  }
-  const holdTimeSummary =
-    !isCountryMode &&
-    q.isFetching &&
-    Boolean(q.isPlaceholderData) &&
-    lastTimeSummary.current?.countryId === countryId;
-  const timeSummary =
-    holdTimeSummary && lastTimeSummary.current ? lastTimeSummary.current : timeSummaryLive;
-  const timeCardsFetching = !isCountryMode && q.isFetching;
-  const timeCardsBlank = timeCardsFetching && !holdTimeSummary && !ui;
-
   const countryPeriodLabel =
     comparisonId === "Today" ? "current levels" : `${comparisonId} ago`;
 
   const chartPanelMeta = isCountryMode
     ? `${primaryLabel} vs ${compareLabel} · ${countryPeriodLabel}`
-    : snapshot
+    : showTimeLoading
+      ? countryLabel
+      : snapshot
       ? snapshot.source === "TradingView"
         ? comparisonId === "Today"
           ? `As of ${snapshot.date} · TradingView UK Government Bond Yields · vs prior close`
@@ -604,22 +576,31 @@ export default function YieldCurvesPage() {
           />
         ) : (
           <YieldCurveSummaryCards
-            {...timeSummary}
-            pending={timeCardsBlank}
-            fetching={timeCardsFetching}
+            variant="time"
+            comparisonId={comparisonId}
+            countryId={countryId}
+            countryLabel={countryLabel}
+            marketRegime={marketRegime}
+            riskSignalBps={timeRisk.bps}
+            riskSignalComparisonBps={timeRiskComparison}
+            riskSignalInsufficient={timeRisk.insufficient}
+            riskSignalChangeBps={timeRiskChange}
+            y10={y10}
+            y10ChangeBps={y10ChangeBps}
+            fetching={showTimeLoading}
           />
         )}
 
-        <Panel
-          title="Yield curve"
-          meta={chartPanelMeta}
-          actions={curveFetching ? <YieldCurveFetchSpinner /> : undefined}
-        >
+        <Panel title="Yield curve" meta={chartPanelMeta}>
           {chartEmptyState ? (
             <YieldCurvePanelEmpty
               title={chartEmptyState.title}
               message={chartEmptyState.message}
             />
+          ) : curveFetching ? (
+            <div className="flex items-center justify-center" style={{ height: YC_CHART_HEIGHT }}>
+              <YieldCurveFetchSpinner />
+            </div>
           ) : isCountryMode ? (
             primaryUi ? (
               <YieldCurveCountryChart
@@ -646,7 +627,6 @@ export default function YieldCurvesPage() {
               ? `Yields and ${primaryLabel} minus ${compareLabel} spread (${countryPeriodLabel})`
               : "Current vs comparison yields (basis points)"
           }
-          actions={curveFetching ? <YieldCurveFetchSpinner /> : undefined}
         >
           {chartEmptyState ? (
             <YieldCurvePanelEmpty
@@ -654,23 +634,20 @@ export default function YieldCurvesPage() {
               message={chartEmptyState.message}
             />
           ) : isCountryMode ? (
-            primaryUi ? (
-              <YieldCurveCountryTable
-                rows={countryRows}
-                primaryLabel={primaryLabel}
-                compareLabel={compareLabel}
-                compareLoading={compareLoadingCountry}
-                periodLabel={countryPeriodLabel}
-              />
-            ) : (
-              <YieldCurveTable rows={[]} pending />
-            )
+            <YieldCurveCountryTable
+              rows={countryRows}
+              primaryLabel={primaryLabel}
+              compareLabel={compareLabel}
+              compareLoading={compareLoadingCountry}
+              fetching={curveFetching}
+              periodLabel={countryPeriodLabel}
+            />
           ) : (
-            <YieldCurveTable rows={rows} pending={awaitingTime} />
+            <YieldCurveTable rows={rows} fetching={showTimeLoading} />
           )}
         </Panel>
 
-        {!isCountryMode && rows.length ? (
+        {!isCountryMode && rows.length && !showTimeLoading ? (
           <YieldCurveInterpretation
             label={interp}
             meanBps={meanShift}

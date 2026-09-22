@@ -26,6 +26,14 @@ import {
 } from "@/components/yield-curves/YieldCurveRiskSignalScale";
 import { YieldCurveFetchSpinner } from "@/components/yield-curves/YieldCurveFetchSpinner";
 
+function CardLoadingValue() {
+  return (
+    <div className="flex min-h-16 items-center justify-center">
+      <YieldCurveFetchSpinner />
+    </div>
+  );
+}
+
 const CARD =
   "rounded-sm border border-border bg-card/80 px-4 py-3 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.02)]";
 
@@ -47,13 +55,8 @@ const CARD_FOOTER =
 const CARD_DETAIL =
   "mt-1 text-[10px] tabular-nums leading-snug text-muted-foreground/90";
 
-function CardHeading({ title, fetching }: { title: string; fetching?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <div className={CARD_TITLE}>{title}</div>
-      {fetching ? <YieldCurveFetchSpinner /> : null}
-    </div>
-  );
+function CardHeading({ title }: { title: string }) {
+  return <div className={CARD_TITLE}>{title}</div>;
 }
 
 function MetricCard({
@@ -77,8 +80,12 @@ function MetricCard({
 }) {
   return (
     <div className={CARD}>
-      <CardHeading title={title} fetching={fetching} />
+      <CardHeading title={title} />
       {header}
+      {fetching ? (
+        <CardLoadingValue />
+      ) : (
+        <>
       <div className={CARD_VALUE}>{value}</div>
       {subtext ? (
         <p className="mt-0.5 text-[11px] text-muted-foreground">{subtext}</p>
@@ -86,6 +93,8 @@ function MetricCard({
       {detail ? <p className={CARD_DETAIL}>{detail}</p> : null}
       {children}
       {footer ? <p className={CARD_FOOTER}>{footer}</p> : null}
+        </>
+      )}
     </div>
   );
 }
@@ -130,26 +139,32 @@ function CurrentRiskSignalCard({
   fetching?: boolean;
 }) {
   const markers: RiskSignalScaleMarker[] =
-    !pending && !insufficient && bps !== null ? [{ bps, role: "primary" }] : [];
+    !fetching && !pending && !insufficient && bps !== null ? [{ bps, role: "primary" }] : [];
 
   return (
     <div className={CARD}>
-      <CardHeading title={title} fetching={fetching} />
+      <CardHeading title={title} />
       <CountryIdentityLine countryId={countryId} label={countryLabel} />
-      <div className={CARD_VALUE}>{pending || insufficient ? "—" : fmtRiskBps(bps)}</div>
-      {insufficient && !pending ? (
+      {fetching ? (
+        <CardLoadingValue />
+      ) : (
+        <div className={CARD_VALUE}>{pending || insufficient ? "—" : fmtRiskBps(bps)}</div>
+      )}
+      {!fetching && insufficient && !pending ? (
         <p className="mt-0.5 text-[11px] text-muted-foreground">{RISK_SIGNAL_NOT_ENOUGH}</p>
       ) : null}
-      {!pending && !insufficient && bps !== null ? (
+      {!fetching && !pending && !insufficient && bps !== null ? (
         <p className={CARD_FOOTER}>{riskSignalInterpretation(bps)}</p>
       ) : null}
-      {!pending && !insufficient ? <YieldCurveRiskSignalScale markers={markers} /> : null}
+      {!fetching && !pending && !insufficient ? <YieldCurveRiskSignalScale markers={markers} /> : null}
     </div>
   );
 }
 
 function TimeRiskComparisonCard({
   comparisonId,
+  countryId,
+  countryLabel,
   currentBps,
   comparisonBps,
   changeBps,
@@ -158,6 +173,8 @@ function TimeRiskComparisonCard({
   fetching = false,
 }: {
   comparisonId: YieldComparisonId;
+  countryId: SovereignCountryId;
+  countryLabel: string;
   currentBps: number | null;
   comparisonBps: number | null;
   changeBps: number | null;
@@ -165,6 +182,16 @@ function TimeRiskComparisonCard({
   pending?: boolean;
   fetching?: boolean;
 }) {
+  if (fetching) {
+    return (
+      <div className={CARD}>
+        <CardHeading title="2Y–10Y spread comparison" />
+        <CountryIdentityLine countryId={countryId} label={countryLabel} />
+        <CardLoadingValue />
+      </div>
+    );
+  }
+
   if (pending || insufficient) {
     return (
       <MetricCard
@@ -182,7 +209,6 @@ function TimeRiskComparisonCard({
         title="2Y–10Y spread comparison"
         value="—"
         subtext="Select a comparison period to see movement"
-        fetching={fetching}
       />
     );
   }
@@ -201,7 +227,7 @@ function TimeRiskComparisonCard({
 
   return (
     <div className={CARD}>
-      <CardHeading title="2Y–10Y spread comparison" fetching={fetching} />
+      <CardHeading title="2Y–10Y spread comparison" />
       <div className="mt-2 space-y-1.5">
         <CountryValueRow label="Today" value={fmtRiskBps(currentBps)} />
         <CountryValueRow label={agoLabel} value={fmtRiskBps(comparisonBps)} />
@@ -227,13 +253,22 @@ function MarketRegimeCard({
   pending?: boolean;
   fetching?: boolean;
 }) {
+  if (fetching) {
+    return (
+      <div className={CARD}>
+        <CardHeading title="Market regime" />
+        <CountryIdentityLine countryId={countryId} label={countryLabel} />
+        <CardLoadingValue />
+      </div>
+    );
+  }
+
   if (pending || regime.state === "insufficient") {
     return (
       <MetricCard
         title="Market regime"
         value="—"
         subtext={pending ? undefined : RISK_SIGNAL_NOT_ENOUGH}
-        fetching={fetching}
         header={<CountryIdentityLine countryId={countryId} label={countryLabel} />}
       />
     );
@@ -242,7 +277,7 @@ function MarketRegimeCard({
   if (regime.state === "pick-period") {
     return (
       <div className={CARD}>
-        <CardHeading title="Market regime" fetching={fetching} />
+        <CardHeading title="Market regime" />
         <CountryIdentityLine countryId={countryId} label={countryLabel} />
         <div className={CARD_REGIME_VALUE}>Select a comparison period</div>
         <p className={CARD_EXPLANATION}>
@@ -254,7 +289,7 @@ function MarketRegimeCard({
 
   return (
     <div className={CARD}>
-      <CardHeading title="Market regime" fetching={fetching} />
+      <CardHeading title="Market regime" />
       <CountryIdentityLine countryId={countryId} label={countryLabel} />
       <div className={CARD_REGIME_VALUE}>{regime.regime}</div>
       <p className={CARD_DETAIL}>
@@ -506,6 +541,8 @@ export function YieldCurveSummaryCards(props: YieldCurveSummaryCardsProps) {
       />
       <TimeRiskComparisonCard
         comparisonId={comparisonId}
+        countryId={countryId}
+        countryLabel={countryLabel}
         currentBps={riskSignalBps}
         comparisonBps={riskSignalComparisonBps}
         changeBps={riskSignalChangeBps}
