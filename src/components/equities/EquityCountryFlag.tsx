@@ -156,6 +156,32 @@ function FlagAU() {
   );
 }
 
+function FlagNZ() {
+  const id = useId().replace(/:/g, "");
+  const star = (cx: number, cy: number, r: number) => (
+    <g key={`${cx}-${cy}`}>
+      <circle cx={cx} cy={cy} r={r + 0.45} fill="#fff" />
+      <circle cx={cx} cy={cy} r={r} fill="#C8102E" />
+    </g>
+  );
+  return (
+    <Clip id={id}>
+      <rect width={20} height={20} fill="#012169" />
+      <rect width={9} height={9} fill="#012169" />
+      <path d="M0 0 L9 9 M9 0 L0 9" stroke="#fff" strokeWidth={2.2} />
+      <path d="M0 0 L9 9 M9 0 L0 9" stroke="#C8102E" strokeWidth={1} />
+      <rect x={3.6} width={1.8} height={9} fill="#fff" />
+      <rect y={3.6} width={9} height={1.8} fill="#fff" />
+      <rect x={4.05} width={0.9} height={9} fill="#C8102E" />
+      <rect y={4.05} width={9} height={0.9} fill="#C8102E" />
+      {star(13.2, 7.2, 0.7)}
+      {star(16.4, 10.4, 0.85)}
+      {star(14.2, 14.2, 0.7)}
+      {star(11.6, 11.4, 0.5)}
+    </Clip>
+  );
+}
+
 function FlagCA() {
   const id = useId().replace(/:/g, "");
   return (
@@ -345,7 +371,7 @@ const FLAGS: Record<string, () => React.ReactElement> = {
   US: FlagUS, SE: FlagSE, DE: FlagDE, FR: FlagFR, GB: FlagGB, JP: FlagJP, CN: FlagCN,
   HK: FlagHK, IN: FlagIN, KR: FlagKR, AU: FlagAU, CA: FlagCA, BR: FlagBR, MX: FlagMX,
   IT: FlagIT, ES: FlagES, NL: FlagNL, CH: FlagCH, NO: FlagNO, DK: FlagDK, FI: FlagFI, ZA: FlagZA,
-  TR: FlagTR, EU: FlagEU, eu500: FlagEU,
+  TR: FlagTR, EU: FlagEU, NZ: FlagNZ, eu500: FlagEU,
   omxn40: FlagGlobe,
   nqgi: FlagGlobe,
 };

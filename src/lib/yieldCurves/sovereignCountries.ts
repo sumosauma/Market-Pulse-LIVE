@@ -155,6 +155,70 @@ export const SOVEREIGN_COUNTRY_CN: SovereignCountryConfig = {
     "MOF–China government bond yield curve based on Chinese government bond market prices",
 };
 
+const GERMANY_METHODOLOGY =
+  "Germany uses the Deutsche Bundesbank official Svensson zero-coupon curve. 1M, 3M and 6M are evaluated from the published curve parameters; 1Y–30Y are published curve points.";
+
+const GERMANY_SHORT_NOTE =
+  "Evaluated from Deutsche Bundesbank published Svensson parameters. Not an individual traded bond yield.";
+
+const GERMANY_PUBLISHED_NOTE =
+  "Published Deutsche Bundesbank Svensson zero-coupon curve point for listed Federal securities.";
+
+export const SOVEREIGN_COUNTRY_DE: SovereignCountryConfig = {
+  id: "DE",
+  label: "Germany",
+  flag: "🇩🇪",
+  harmonizedGrid: HARMONIZED_YIELD_GRID,
+  maturityCoverage: ALL_OFFICIAL,
+  maturityMethodologyNotes: {
+    "1M": GERMANY_SHORT_NOTE,
+    "3M": GERMANY_SHORT_NOTE,
+    "6M": GERMANY_SHORT_NOTE,
+    "1Y": GERMANY_PUBLISHED_NOTE,
+    "2Y": GERMANY_PUBLISHED_NOTE,
+    "5Y": GERMANY_PUBLISHED_NOTE,
+    "10Y": GERMANY_PUBLISHED_NOTE,
+    "30Y": GERMANY_PUBLISHED_NOTE,
+  },
+  isLive: true,
+  defaultCurveType: "zeroCoupon",
+  defaultSource: "Deutsche Bundesbank",
+  methodologyNote: GERMANY_METHODOLOGY,
+};
+
+const FRANCE_METHODOLOGY =
+  "France uses Banque de France / Euronext TEC constant-maturity OAT yields. Official daily TEC data begins at 1Y, so 1M, 3M and 6M are unavailable.";
+
+const FRANCE_TEC_NOTE = "Banque de France / Euronext TEC constant-maturity OAT yield.";
+
+export const SOVEREIGN_COUNTRY_FR: SovereignCountryConfig = {
+  id: "FR",
+  label: "France",
+  flag: "🇫🇷",
+  harmonizedGrid: HARMONIZED_YIELD_GRID,
+  maturityCoverage: fullCoverage({
+    "1M": "missing",
+    "3M": "missing",
+    "6M": "missing",
+    "1Y": "official",
+    "2Y": "official",
+    "5Y": "official",
+    "10Y": "official",
+    "30Y": "official",
+  }),
+  maturityMethodologyNotes: {
+    "1Y": FRANCE_TEC_NOTE,
+    "2Y": FRANCE_TEC_NOTE,
+    "5Y": FRANCE_TEC_NOTE,
+    "10Y": FRANCE_TEC_NOTE,
+    "30Y": FRANCE_TEC_NOTE,
+  },
+  isLive: true,
+  defaultCurveType: "benchmark",
+  defaultSource: "Banque de France",
+  methodologyNote: FRANCE_METHODOLOGY,
+};
+
 export const SOVEREIGN_COUNTRY_GB: SovereignCountryConfig = {
   id: "GB",
   label: "United Kingdom",
@@ -180,8 +244,10 @@ export const SOVEREIGN_COUNTRIES: Record<SovereignCountryId, SovereignCountryCon
   US: SOVEREIGN_COUNTRY_US,
   SE: SOVEREIGN_COUNTRY_SE,
   NO: SOVEREIGN_COUNTRY_NO,
-  CN: SOVEREIGN_COUNTRY_CN,
   GB: SOVEREIGN_COUNTRY_GB,
+  CN: SOVEREIGN_COUNTRY_CN,
+  DE: SOVEREIGN_COUNTRY_DE,
+  FR: SOVEREIGN_COUNTRY_FR,
 };
 
 /** Countries with a wired live fetcher — shown in the country selector. */

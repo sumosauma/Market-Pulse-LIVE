@@ -121,6 +121,50 @@ export function formatYieldSourceDisplay(
     }
   }
 
+  if (countryId === "DE") {
+    if (dataSourceTag === "bundesbank-live") {
+      return { headline: "Deutsche Bundesbank · Live", tone: "live" };
+    }
+    if (dataSourceTag === "bundesbank-disk-cache" || dataSourceTag === "browser-local-storage") {
+      return {
+        headline: `Deutsche Bundesbank · Cached · Last updated ${updated}`,
+        detail: opts?.liveRefreshFailed
+          ? "Live refresh unavailable; showing latest cached official data."
+          : undefined,
+        tone: "cached",
+      };
+    }
+    if (dataSourceTag === "tv-fallback") {
+      return {
+        headline: "TradingView Germany Government Bond Yields · Fallback",
+        detail: "Official Deutsche Bundesbank curve unavailable. Showing the full TradingView curve.",
+        tone: "cached",
+      };
+    }
+  }
+
+  if (countryId === "FR") {
+    if (dataSourceTag === "bdf-live") {
+      return { headline: "Banque de France TEC · Live", tone: "live" };
+    }
+    if (dataSourceTag === "bdf-disk-cache" || dataSourceTag === "browser-local-storage") {
+      return {
+        headline: `Banque de France TEC · Cached · Last updated ${updated}`,
+        detail: opts?.liveRefreshFailed
+          ? "Live refresh unavailable; showing latest cached official data."
+          : undefined,
+        tone: "cached",
+      };
+    }
+    if (dataSourceTag === "tv-fallback") {
+      return {
+        headline: "TradingView France Government Bond Yields · Fallback",
+        detail: "Official Banque de France TEC history unavailable. Showing the full TradingView curve.",
+        tone: "cached",
+      };
+    }
+  }
+
   const fallbackPublisher =
     countryId === "SE"
       ? "Millistream/DI"
@@ -130,7 +174,11 @@ export function formatYieldSourceDisplay(
           ? "Bank of England"
           : countryId === "CN"
             ? "ChinaBond"
-            : "U.S. Treasury";
+            : countryId === "DE"
+              ? "Deutsche Bundesbank"
+              : countryId === "FR"
+                ? "Banque de France"
+                : "U.S. Treasury";
   return { headline: fallbackPublisher, tone: "unknown" };
 }
 

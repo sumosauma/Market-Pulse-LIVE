@@ -7,6 +7,18 @@ const OVERLAP = {
   md: "-ml-2",
 } as const;
 
+export function FxCurrencyFlag({
+  currency,
+  size = "xs",
+}: {
+  currency: string;
+  size?: "xs" | "sm" | "md";
+}) {
+  const countryId = FX_CURRENCY_FLAG[currency];
+  if (!countryId) return null;
+  return <EquityCountryFlag countryId={countryId} size={size} />;
+}
+
 export function FxPairFlags({
   pair,
   size = "sm",

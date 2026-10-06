@@ -50,6 +50,7 @@ export const FX_CURRENCY_FLAG: Record<string, string> = {
   AUD: "AU",
   SEK: "SE",
   NOK: "NO",
+  NZD: "NZ",
 };
 
 export const DEFAULT_FX_PAIR: FxPairId = "eurusd";

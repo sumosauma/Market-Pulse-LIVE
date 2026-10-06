@@ -58,24 +58,30 @@ export function FxPriceHistory({
     <Panel
       title="FX Price History"
       meta={last != null ? `${pair.label} · ${fmtRate(last, pair.digits)}` : pair.label}
-      actions={
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <select
-            aria-label="FX pair"
-            value={pairId}
-            onChange={(event) => onPair(event.target.value as FxPairId)}
-            className="h-7 rounded-md border border-border bg-card px-2 text-[11px] font-medium text-foreground"
-          >
-            {FX_PAIRS.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-          <FxChips options={FX_PRICE_WINDOWS} value={window} onChange={onWindow} />
-        </div>
-      }
+      actions={<FxChips options={FX_PRICE_WINDOWS} value={window} onChange={onWindow} />}
     >
+      <div className="flex flex-wrap gap-1 border-b border-border px-3 py-2" role="tablist" aria-label="FX pair">
+        {FX_PAIRS.map((item) => {
+          const selected = item.id === pairId;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => onPair(item.id)}
+              className={[
+                "rounded-md border px-2 py-1 text-[11px] font-medium transition-colors",
+                selected
+                  ? "border-border bg-muted text-foreground"
+                  : "border-transparent text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+              ].join(" ")}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
       {loading ? (
         <FxSectionStatus label="Loading FX history" />
       ) : !market ? (

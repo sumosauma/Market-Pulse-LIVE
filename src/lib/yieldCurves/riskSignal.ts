@@ -98,6 +98,8 @@ export function shortCountryLabel(countryId: string, fullLabel: string): string 
   if (countryId === "CN") return "China";
   if (countryId === "SE") return "Sweden";
   if (countryId === "NO") return "Norway";
+  if (countryId === "DE") return "Germany";
+  if (countryId === "FR") return "France";
   return fullLabel;
 }
 

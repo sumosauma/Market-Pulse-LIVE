@@ -32,6 +32,8 @@ import {
   getSovereignCountry,
 } from "@/lib/yieldCurves/sovereignCountries";
 import { STRUCTURALLY_MISSING_CN } from "@/lib/yieldCurves/fetchChinaChinaBondCurve";
+import { STRUCTURALLY_MISSING_DE } from "@/lib/yieldCurves/fetchGermanyBundesbankCurve";
+import { STRUCTURALLY_MISSING_FR } from "@/lib/yieldCurves/fetchFranceTecCurve";
 import { STRUCTURALLY_MISSING_GB } from "@/lib/yieldCurves/fetchUkBankOfEnglandCurve";
 import { STRUCTURALLY_MISSING_NO } from "@/lib/yieldCurves/fetchNorwayNorgesBankCurve";
 import { STRUCTURALLY_MISSING_SE } from "@/lib/yieldCurves/fetchSwedenDiCurve";
@@ -42,6 +44,8 @@ import type {
   YieldMaturity,
 } from "@/lib/yieldCurves/types";
 import { useChinaChinaBondYieldCurve } from "@/lib/yieldCurves/useChinaChinaBondYieldCurve";
+import { useFranceTecYieldCurve } from "@/lib/yieldCurves/useFranceTecYieldCurve";
+import { useGermanyBundesbankYieldCurve } from "@/lib/yieldCurves/useGermanyBundesbankYieldCurve";
 import { useUkBankOfEnglandYieldCurve } from "@/lib/yieldCurves/useUkBankOfEnglandYieldCurve";
 import { useNorwayNorgesBankYieldCurve } from "@/lib/yieldCurves/useNorwayNorgesBankYieldCurve";
 import { useSwedenDiYieldCurve } from "@/lib/yieldCurves/useSwedenDiYieldCurve";
@@ -79,9 +83,53 @@ function structurallyMissingFor(id: SovereignCountryId): readonly YieldMaturity[
       return STRUCTURALLY_MISSING_GB;
     case "CN":
       return STRUCTURALLY_MISSING_CN;
+    case "DE":
+      return STRUCTURALLY_MISSING_DE;
+    case "FR":
+      return STRUCTURALLY_MISSING_FR;
     default:
       return [];
   }
+}
+
+function missingForSnapshot(
+  id: SovereignCountryId,
+  source: string | undefined,
+): readonly YieldMaturity[] {
+  if (id === "FR" && source === "TradingView") return [];
+  return structurallyMissingFor(id);
+}
+
+function tradingViewCurveName(id: SovereignCountryId): string {
+  if (id === "DE") return "TradingView Germany Government Bond Yields";
+  if (id === "FR") return "TradingView France Government Bond Yields";
+  return "TradingView UK Government Bond Yields";
+}
+
+function officialObservationSuffix(date: string | undefined): string {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
+  const ageDays = (Date.now() - Date.parse(`${date}T12:00:00.000Z`)) / 86_400_000;
+  if (ageDays > 5) return ` Latest official observation is ${date}.`;
+  return "";
+}
+
+function coverageNoteFor(
+  id: SovereignCountryId,
+  source: string | undefined,
+  date: string | undefined,
+): string | undefined {
+  const stale = source === "TradingView" ? "" : officialObservationSuffix(date);
+  if (id === "DE") {
+    return source === "TradingView"
+      ? "Official Deutsche Bundesbank curve was unavailable. This curve is the full TradingView Germany government bond yield set, not the Bundesbank zero-coupon curve."
+      : `Germany uses the Deutsche Bundesbank official Svensson zero-coupon curve. 1M, 3M and 6M are evaluated from the published curve parameters; 1Y–30Y are published curve points.${stale}`;
+  }
+  if (id === "FR") {
+    return source === "TradingView"
+      ? "Official Banque de France TEC history was unavailable. This curve is the full TradingView France government bond yield set, including 1M, 3M and 6M. It is not the Euronext TEC curve."
+      : `France uses Banque de France / Euronext TEC constant-maturity OAT yields. Official daily TEC data begins at 1Y, so 1M, 3M and 6M are unavailable.${stale}`;
+  }
+  return undefined;
 }
 
 export default function YieldCurvesPage() {
@@ -116,73 +164,38 @@ export default function YieldCurvesPage() {
     comparisonId,
     countryId === "CN" || countryModeUses("CN"),
   );
+  const deQ = useGermanyBundesbankYieldCurve(
+    comparisonId,
+    countryId === "DE" || countryModeUses("DE"),
+  );
+  const frQ = useFranceTecYieldCurve(
+    comparisonId,
+    countryId === "FR" || countryModeUses("FR"),
+  );
 
   const usUi = usQ.data ?? undefined;
   const seUi = seQ.data ?? undefined;
   const noUi = noQ.data ?? undefined;
   const gbUi = gbQ.data ?? undefined;
   const cnUi = cnQ.data ?? undefined;
+  const deUi = deQ.data ?? undefined;
+  const frUi = frQ.data ?? undefined;
 
-  const q =
-    countryId === "SE"
-      ? seQ
-      : countryId === "NO"
-        ? noQ
-        : countryId === "GB"
-          ? gbQ
-          : countryId === "CN"
-            ? cnQ
-            : usQ;
-  const ui =
-    countryId === "SE"
-      ? seUi
-      : countryId === "NO"
-        ? noUi
-        : countryId === "GB"
-          ? gbUi
-          : countryId === "CN"
-            ? cnUi
-            : usUi;
-  const primaryUi =
-    primaryCountryId === "SE"
-      ? seUi
-      : primaryCountryId === "NO"
-        ? noUi
-        : primaryCountryId === "GB"
-          ? gbUi
-          : primaryCountryId === "CN"
-            ? cnUi
-            : usUi;
-  const compareUi =
-    compareCountryId === "SE"
-      ? seUi
-      : compareCountryId === "NO"
-        ? noUi
-        : compareCountryId === "GB"
-          ? gbUi
-          : compareCountryId === "CN"
-            ? cnUi
-            : usUi;
-  const primaryQ =
-    primaryCountryId === "SE"
-      ? seQ
-      : primaryCountryId === "NO"
-        ? noQ
-        : primaryCountryId === "GB"
-          ? gbQ
-          : primaryCountryId === "CN"
-            ? cnQ
-            : usQ;
-  const compareQ =
-    compareCountryId === "SE"
-      ? seQ
-      : compareCountryId === "NO"
-        ? noQ
-        : compareCountryId === "GB"
-          ? gbQ
-          : compareCountryId === "CN"
-            ? cnQ
-            : usQ;
+  const byCountry = {
+    US: { q: usQ, ui: usUi },
+    SE: { q: seQ, ui: seUi },
+    NO: { q: noQ, ui: noUi },
+    GB: { q: gbQ, ui: gbUi },
+    CN: { q: cnQ, ui: cnUi },
+    DE: { q: deQ, ui: deUi },
+    FR: { q: frQ, ui: frUi },
+  };
+  const q = byCountry[countryId].q;
+  const ui = byCountry[countryId].ui;
+  const primaryUi = byCountry[primaryCountryId].ui;
+  const compareUi = byCountry[compareCountryId].ui;
+  const primaryQ = byCountry[primaryCountryId].q;
+  const compareQ = byCountry[compareCountryId].q;
 
   const primaryLabel = sovereignLabel(primaryCountryId);
   const compareLabel = sovereignLabel(compareCountryId);
@@ -306,22 +319,24 @@ export default function YieldCurvesPage() {
     return rows.filter((r) => r.current.sourceType === "unavailable").map((r) => r.maturity);
   }, [countryId, rows]);
 
+  const deUnavailableMaturities = useMemo((): YieldMaturity[] => {
+    if (countryId !== "DE" || !rows.length) return [];
+    return rows.filter((r) => r.current.sourceType === "unavailable").map((r) => r.maturity);
+  }, [countryId, rows]);
+
+  const frUnavailableMaturities = useMemo((): YieldMaturity[] => {
+    if (countryId !== "FR" || !rows.length) return [];
+    return rows.filter((r) => r.current.sourceType === "unavailable").map((r) => r.maturity);
+  }, [countryId, rows]);
+
   const structurallyMissing = isCountryMode
     ? [
         ...new Set([
-          ...structurallyMissingFor(primaryCountryId),
-          ...structurallyMissingFor(compareCountryId),
+          ...missingForSnapshot(primaryCountryId, primaryUi?.snapshot.source),
+          ...missingForSnapshot(compareCountryId, compareUi?.snapshot.source),
         ]),
       ]
-    : countryId === "SE"
-      ? STRUCTURALLY_MISSING_SE
-      : countryId === "NO"
-        ? STRUCTURALLY_MISSING_NO
-        : countryId === "GB"
-          ? STRUCTURALLY_MISSING_GB
-          : countryId === "CN"
-            ? STRUCTURALLY_MISSING_CN
-            : [];
+    : missingForSnapshot(countryId, ui?.snapshot.source);
 
   const unavailableMaturities = useMemo((): YieldMaturity[] => {
     if (isCountryMode) {
@@ -335,6 +350,8 @@ export default function YieldCurvesPage() {
     if (countryId === "NO") return noUnavailableMaturities;
     if (countryId === "GB") return gbUnavailableMaturities;
     if (countryId === "CN") return cnUnavailableMaturities;
+    if (countryId === "DE") return deUnavailableMaturities;
+    if (countryId === "FR") return frUnavailableMaturities;
     return [];
   }, [
     isCountryMode,
@@ -344,20 +361,13 @@ export default function YieldCurvesPage() {
     noUnavailableMaturities,
     gbUnavailableMaturities,
     cnUnavailableMaturities,
+    deUnavailableMaturities,
+    frUnavailableMaturities,
   ]);
 
   const snapshot = isCountryMode ? primaryUi?.snapshot : ui?.snapshot;
 
-  const countryLabel =
-    countryId === "SE"
-      ? "Sweden"
-      : countryId === "NO"
-        ? "Norway"
-        : countryId === "GB"
-          ? "United Kingdom"
-          : countryId === "CN"
-            ? "China"
-            : "United States";
+  const countryLabel = sovereignLabel(countryId);
 
   const countryPeriodLabel =
     comparisonId === "Today" ? "current levels" : `${comparisonId} ago`;
@@ -369,9 +379,13 @@ export default function YieldCurvesPage() {
       : snapshot
       ? snapshot.source === "TradingView"
         ? comparisonId === "Today"
-          ? `As of ${snapshot.date} · TradingView UK Government Bond Yields · vs prior close`
-          : `As of ${snapshot.date} · TradingView UK Government Bond Yields · vs TradingView ${comparisonId}`
-        : `As of ${snapshot.date} · vs ${snapshot.comparisonDate}`
+          ? `As of ${snapshot.date} · ${tradingViewCurveName(countryId)} · vs prior close`
+          : `As of ${snapshot.date} · ${tradingViewCurveName(countryId)} · vs TradingView ${comparisonId}`
+        : countryId === "DE"
+          ? `As of ${snapshot.date} · Deutsche Bundesbank zero-coupon curve · vs ${snapshot.comparisonDate}`
+          : countryId === "FR"
+            ? `As of ${snapshot.date} · Banque de France TEC · vs ${snapshot.comparisonDate}`
+            : `As of ${snapshot.date} · vs ${snapshot.comparisonDate}`
       : countryLabel;
 
   const chartEmptyState = useMemo((): { title: string; message: string } | null => {
@@ -399,6 +413,8 @@ export default function YieldCurvesPage() {
           NO: "Official Norges Bank data could not be loaded.",
           GB: "United Kingdom yield curve data unavailable.",
           CN: "Official ChinaBond data could not be loaded.",
+          DE: "Official Deutsche Bundesbank data could not be loaded.",
+          FR: "Official Banque de France TEC data could not be loaded.",
         };
         const msg = unavailableMessages[countryId];
         if (msg) {
@@ -659,15 +675,33 @@ export default function YieldCurvesPage() {
         <YieldCurveDataNotes
           structurallyMissing={structurallyMissing}
           unavailableMaturities={unavailableMaturities}
-          coverageNote={
-            countryId === "SE"
-              ? "Sweden: 1M/3M/6M treasury bills from Riksbank SWEA (official, T+1). 2Y/5Y/10Y/30Y from DI/Millistream (~15 min delayed). 1Y is not published."
-              : countryId === "GB"
-                ? gbUi?.dataSourceTag === "boe-fallback"
-                  ? "TradingView UK government bond yields were unavailable. This curve is the latest Bank of England nominal gilt zero-coupon spot curve."
-                  : "Current curve and 1D, 1W, 1M, 3M, and 1Y comparisons use TradingView UK government bond benchmark yields for the same symbols. A missing TradingView history point is left unavailable. Bank of England zero-coupon spot yields are not mixed into these changes."
-                : undefined
-          }
+          coverageNote={(() => {
+            const swedenNote =
+              "Sweden: 1M/3M/6M treasury bills from Riksbank SWEA (official, T+1). 2Y/5Y/10Y/30Y from DI/Millistream (~15 min delayed). 1Y is not published.";
+            const ukNote =
+              gbUi?.dataSourceTag === "boe-fallback"
+                ? "TradingView UK government bond yields were unavailable. This curve is the latest Bank of England nominal gilt zero-coupon spot curve."
+                : "Current curve and 1D, 1W, 1M, 3M, and 1Y comparisons use TradingView UK government bond benchmark yields for the same symbols. A missing TradingView history point is left unavailable. Bank of England zero-coupon spot yields are not mixed into these changes.";
+            const noteFor = (
+              id: SovereignCountryId,
+              source: string | undefined,
+              date: string | undefined,
+            ) => {
+              if (id === "SE") return swedenNote;
+              if (id === "GB") return ukNote;
+              return coverageNoteFor(id, source, date);
+            };
+            if (isCountryMode) {
+              const text = [
+                noteFor(primaryCountryId, primaryUi?.snapshot.source, primaryUi?.snapshot.date),
+                noteFor(compareCountryId, compareUi?.snapshot.source, compareUi?.snapshot.date),
+              ]
+                .filter(Boolean)
+                .join(" ");
+              return text || undefined;
+            }
+            return noteFor(countryId, ui?.snapshot.source, ui?.snapshot.date);
+          })()}
         />
       </div>
     </PageShell>

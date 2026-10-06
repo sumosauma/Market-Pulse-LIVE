@@ -7,6 +7,7 @@ import { FX_DESK_PERIODS, latestClose, pairSeries, returnOverSessions, volatilit
 import { FX_PAIRS, type FxPairId } from "@/lib/fx/pairs";
 import type { PolicyBankId, PolicyRateRow } from "@/lib/policyRates/types";
 import { fmtPct, fmtRate, fmtVol } from "./fxFormat";
+import { FxPairFlags } from "./FxPairFlags";
 import { FxInfo, FxSectionStatus } from "./FxSection";
 
 const PERIOD_SESSIONS: Record<FxDeskPeriod, number> = { "1D": 1, "1W": 5, "1M": 21, "3M": 63 };
@@ -148,7 +149,12 @@ export function FxMonitor({
                       selected ? "bg-muted/50" : "hover:bg-muted/25",
                     ].join(" ")}
                   >
-                    <td className="px-4 py-1.5 text-left font-medium text-foreground">{pair.label}</td>
+                    <td className="px-4 py-1.5 text-left font-medium text-foreground">
+                      <span className="inline-flex items-center gap-2">
+                        <FxPairFlags pair={pair} size="xs" />
+                        {pair.label}
+                      </span>
+                    </td>
                     <td className="px-2 py-1.5 text-right font-mono tabular-nums">{fmtRate(spot, pair.digits)}</td>
                     {FX_DESK_PERIODS.map((period) => (
                       <td key={period} className={`px-2 py-1.5 text-right font-mono tabular-nums ${changePctClass(returns[period])}`}>

@@ -121,6 +121,30 @@ function hist(ticker: string, rows: { date: string; close: number }[]): VolTermS
   assert(Math.abs(resolved.sx5eSpread1m3m!.value - (24 - 25)) < 1e-12, "V2TX-VSTX90 on 26th");
   assert(resolved.sx5eSpread1m1y != null, "EU 1M-1Y");
   assert(Math.abs(resolved.sx5eSpread1m1y!.value - (24 - 27)) < 1e-12, "V2TX-VSTX360 on 26th");
+  assert(resolved.historySnapshots?.Today.asOf === "2026-08-26", "today snapshot is the common date");
+  assert(resolved.historySnapshots?.Today.chartRows[0]!.spx === 20, "today snapshot matches the current curve");
+  assert(resolved.historySnapshots?.["1D"]?.asOf === "2026-08-25", "1D uses the prior common session");
+  assert(resolved.historySnapshots?.["1D"]?.chartRows[0]!.spx === 10, "1D does not reuse today's VIX print");
+  assert(resolved.historySnapshots?.["1W"] == null, "1W does not invent a date before the history");
+  assert(resolved.spxSpread1m3m!.asOf === "2026-08-26", "spread stays on today's curve");
+}
+
+{
+  const tickers = ["VIX", "VIX3M", "VIX6M", "VIX1Y", "V2TX", "VSTX90", "VSTX180", "VSTX360"] as const;
+  const histories = tickers.map((ticker, i) =>
+    hist(ticker, [
+      { date: "2026-10-02", close: 12 + i },
+      { date: "2026-10-05", close: 20 + i },
+    ]),
+  );
+  const resolved = resolveVolTermStructure(histories, "2026-10-06");
+  assert(resolved.asOf === "2026-10-05", "Monday is the latest common date");
+  assert(resolved.historySnapshots?.["1D"]?.asOf === "2026-10-02", "1D walks back over the weekend to Friday");
+  assert(resolved.historySnapshots?.["1D"]?.chartRows.every((row) => Number.isFinite(row.spx) && Number.isFinite(row.sx5e)), "weekend snapshot has all eight values");
+  const friday = resolved.historySnapshots?.["1D"];
+  assert(friday?.chartRows.map((row) => row.spx).join(",") === "12,13,14,15", "Friday SPX curve");
+  assert(friday?.chartRows.map((row) => row.sx5e).join(",") === "16,17,18,19", "Friday EURO STOXX 50 curve");
+  assert(resolved.spxSpread1m3m?.asOf === "2026-10-05", "weekend snapshot does not move today's spread");
 }
 
 {
@@ -262,6 +286,26 @@ console.log("unit tests passed");
   assert(live.sx5e.points.every((p) => p.sourceFile.endsWith(".txt")), "EU from STOXX txt");
   assert(!live.sx5e.points.some((p) => /^V6I/i.test(p.ticker)), "no sub-indices");
   assert(live.chartRows.every((r) => Number.isFinite(r.spx) && Number.isFinite(r.sx5e)), "all eight points");
+  assert(live.historySnapshots != null, "history snapshots derived with the live load");
+  const todaySnap = live.historySnapshots!.Today;
+  assert(todaySnap.asOf === live.asOf, "today snapshot date");
+  assert(
+    todaySnap.chartRows.every((row, i) => row.spx === live.chartRows![i]!.spx && row.sx5e === live.chartRows![i]!.sx5e),
+    "today snapshot matches the current curve",
+  );
+  for (const id of ["Today", "1D", "1W", "3M", "1Y"] as const) {
+    const snap = live.historySnapshots![id];
+    assert(snap != null, `${id} snapshot`);
+    assert(snap!.asOf <= live.asOf, `${id} is not after the latest common date`);
+    console.log(
+      [
+        id,
+        snap!.asOf,
+        `SPX ${snap!.chartRows.map((row) => `${row.maturity}=${row.spx}`).join(" ")} ${snap!.spx.shape}`,
+        `SX5E ${snap!.chartRows.map((row) => `${row.maturity}=${row.sx5e}`).join(" ")} ${snap!.sx5e.shape}`,
+      ].join(" | "),
+    );
+  }
 }
 
 console.log("vol term structure tests passed");

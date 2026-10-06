@@ -15,7 +15,7 @@ export const YIELD_MATURITY_YEAR_FRACTION = {
 export type YieldMaturity = (typeof YIELD_CURVE_MATURITIES)[number];
 
 /** Sovereign countries with live or planned yield-curve support. */
-export type SovereignCountryId = "US" | "SE" | "NO" | "CN" | "GB";
+export type SovereignCountryId = "US" | "SE" | "NO" | "GB" | "CN" | "DE" | "FR";
 
 /** Official-only registry: a grid point is published officially or absent. */
 export type MaturityCoverageStatus = "official" | "missing";
@@ -83,6 +83,8 @@ export type YieldCurveSnapshot = Readonly<{
     | "Bank of England"
     | "TradingView"
     | "ChinaBond / CCDC"
+    | "Deutsche Bundesbank"
+    | "Banque de France"
     | "Mock (illustrative)";
   /**
    * UK only. Historical comparison leg publisher when the current curve is TradingView.
@@ -267,6 +269,63 @@ export type GetChinaYieldHistoryResponse = Readonly<{
   history: ParsedChinaChinaBondHistory | null;
   errorMessage: string | null;
   dataSourceTag: ChinaYieldDataSourceTag;
+  updatedAtISO: string;
+  cacheSavedAtISO: string | null;
+}>;
+
+export type GermanyYieldDataSourceTag =
+  | "bundesbank-live"
+  | "bundesbank-disk-cache"
+  | "browser-local-storage"
+  | "tv-fallback"
+  | "unavailable";
+
+export type ParsedGermanyBundesbankSeries = Readonly<{
+  maturity: YieldMaturity;
+  rows: ReadonlyArray<{ date: string; value: number }>;
+}>;
+
+export type ParsedGermanyBundesbankHistory = Readonly<{
+  fetchedAt: string;
+  sourceEndpoint: string;
+  /** Latest date with a published 10Y zero, when present. */
+  latestDate: string | null;
+  series: readonly ParsedGermanyBundesbankSeries[];
+  failedMaturities?: readonly YieldMaturity[];
+}>;
+
+export type GetGermanyYieldHistoryResponse = Readonly<{
+  history: ParsedGermanyBundesbankHistory | null;
+  errorMessage: string | null;
+  dataSourceTag: GermanyYieldDataSourceTag;
+  updatedAtISO: string;
+  cacheSavedAtISO: string | null;
+}>;
+
+export type FranceYieldDataSourceTag =
+  | "bdf-live"
+  | "bdf-disk-cache"
+  | "browser-local-storage"
+  | "tv-fallback"
+  | "unavailable";
+
+export type ParsedFranceTecSeries = Readonly<{
+  maturity: YieldMaturity;
+  rows: ReadonlyArray<{ date: string; value: number }>;
+}>;
+
+export type ParsedFranceTecHistory = Readonly<{
+  fetchedAt: string;
+  sourceEndpoint: string;
+  latestDate: string | null;
+  series: readonly ParsedFranceTecSeries[];
+  failedMaturities?: readonly YieldMaturity[];
+}>;
+
+export type GetFranceYieldHistoryResponse = Readonly<{
+  history: ParsedFranceTecHistory | null;
+  errorMessage: string | null;
+  dataSourceTag: FranceYieldDataSourceTag;
   updatedAtISO: string;
   cacheSavedAtISO: string | null;
 }>;

@@ -164,6 +164,38 @@ export type VolTermChartRow = {
   sx5e: number;
 };
 
+/** Chart history. Offsets match the rest of Market Pulse: 1D −1, 1W −7, 3M −93, 1Y −366 calendar days. */
+export const VOL_TERM_HISTORY_IDS = ["Today", "1D", "1W", "3M", "1Y"] as const;
+export type VolTermHistoryId = (typeof VOL_TERM_HISTORY_IDS)[number];
+
+export type VolTermHistoryCurve = {
+  oneMonth: number;
+  oneYear: number;
+  shape: VolTermCurveShape;
+};
+
+export type VolTermHistorySnapshot = {
+  asOf: string;
+  chartRows: VolTermChartRow[];
+  spx: VolTermHistoryCurve;
+  sx5e: VolTermHistoryCurve;
+};
+
+export type VolTermHistorySnapshots = {
+  Today: VolTermHistorySnapshot;
+  "1D": VolTermHistorySnapshot | null;
+  "1W": VolTermHistorySnapshot | null;
+  "3M": VolTermHistorySnapshot | null;
+  "1Y": VolTermHistorySnapshot | null;
+};
+
+const VOL_TERM_HISTORY_OFFSET_DAYS: Record<Exclude<VolTermHistoryId, "Today">, number> = {
+  "1D": -1,
+  "1W": -7,
+  "3M": -93,
+  "1Y": -366,
+};
+
 export type VolTermSpread = {
   label: string;
   value: number;
@@ -183,6 +215,8 @@ export type VolTermStructurePayload = {
   spxSpread1m1y: VolTermSpread | null;
   sx5eSpread1m3m: VolTermSpread | null;
   sx5eSpread1m1y: VolTermSpread | null;
+  /** Precomputed from the same eight histories. Null only when the current curve is unavailable. */
+  historySnapshots: VolTermHistorySnapshots | null;
   unavailableReason: string | null;
 };
 
@@ -376,7 +410,106 @@ export function resolveVolTermStructure(
     spxSpread1m1y,
     sx5eSpread1m3m,
     sx5eSpread1m1y,
+    historySnapshots: buildHistorySnapshots(histories, maps, asOf, chartRows, spx, sx5e),
     unavailableReason: null,
+  };
+}
+
+function addUtcDays(dateIso: string, deltaDays: number): string {
+  const d = new Date(`${dateIso}T12:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  return d.toISOString().slice(0, 10);
+}
+
+function commonDatesAsc(seriesMaps: readonly ReadonlyMap<string, number>[]): string[] {
+  const [first, ...rest] = seriesMaps;
+  if (!first) return [];
+  const dates: string[] = [];
+  for (const date of first.keys()) {
+    if (rest.every((map) => map.has(date))) dates.push(date);
+  }
+  dates.sort();
+  return dates;
+}
+
+function latestCommonOnOrBefore(commonAsc: readonly string[], targetIso: string): string | null {
+  let best: string | null = null;
+  for (const date of commonAsc) {
+    if (date <= targetIso) best = date;
+    else break;
+  }
+  return best;
+}
+
+function snapshotFromPoints(asOf: string, points: readonly VolTermPoint[]): VolTermHistorySnapshot | null {
+  const spx = buildCurve("spx", "S&P 500", points);
+  const sx5e = buildCurve("sx5e", "EURO STOXX 50", points);
+  if (!spx || !sx5e) return null;
+  return {
+    asOf,
+    chartRows: VOL_TERM_MATURITIES.map((maturity) => ({
+      maturity,
+      spx: spx.points.find((p) => p.maturity === maturity)!.value,
+      sx5e: sx5e.points.find((p) => p.maturity === maturity)!.value,
+    })),
+    spx: { oneMonth: spx.oneMonth, oneYear: spx.oneYear, shape: spx.shape },
+    sx5e: { oneMonth: sx5e.oneMonth, oneYear: sx5e.oneYear, shape: sx5e.shape },
+  };
+}
+
+function pointsOnCommonDate(
+  histories: readonly VolTermSeriesHistory[],
+  maps: readonly ReadonlyMap<string, number>[],
+  date: string,
+): VolTermPoint[] | null {
+  const points: VolTermPoint[] = [];
+  for (let i = 0; i < histories.length; i++) {
+    const hist = histories[i]!;
+    const value = maps[i]!.get(date);
+    if (value == null || !Number.isFinite(value) || value <= 0) return null;
+    points.push({
+      marketId: hist.def.marketId,
+      marketLabel: hist.def.marketLabel,
+      maturity: hist.def.maturity,
+      ticker: hist.def.ticker,
+      indexName: hist.def.indexName,
+      value,
+      sourceFile: hist.def.sourceFile,
+      sourceUrl: hist.def.sourceUrl,
+    });
+  }
+  return points;
+}
+
+/** Today is the latest common print. Other periods use the latest common session on or before the calendar target. */
+function buildHistorySnapshots(
+  histories: readonly VolTermSeriesHistory[],
+  maps: readonly ReadonlyMap<string, number>[],
+  asOf: string,
+  chartRows: VolTermChartRow[],
+  spx: VolTermCurve,
+  sx5e: VolTermCurve,
+): VolTermHistorySnapshots {
+  const common = commonDatesAsc(maps);
+  const today: VolTermHistorySnapshot = {
+    asOf,
+    chartRows,
+    spx: { oneMonth: spx.oneMonth, oneYear: spx.oneYear, shape: spx.shape },
+    sx5e: { oneMonth: sx5e.oneMonth, oneYear: sx5e.oneYear, shape: sx5e.shape },
+  };
+  const historical = (id: Exclude<VolTermHistoryId, "Today">): VolTermHistorySnapshot | null => {
+    const target = addUtcDays(asOf, VOL_TERM_HISTORY_OFFSET_DAYS[id]);
+    const date = latestCommonOnOrBefore(common, target);
+    if (date == null) return null;
+    const points = pointsOnCommonDate(histories, maps, date);
+    return points ? snapshotFromPoints(date, points) : null;
+  };
+  return {
+    Today: today,
+    "1D": historical("1D"),
+    "1W": historical("1W"),
+    "3M": historical("3M"),
+    "1Y": historical("1Y"),
   };
 }
 
@@ -407,6 +540,7 @@ function unavailable(reason: string): Omit<VolTermStructurePayload, "fetchedAt" 
     spxSpread1m1y: null,
     sx5eSpread1m3m: null,
     sx5eSpread1m1y: null,
+    historySnapshots: null,
     unavailableReason: reason,
   };
 }

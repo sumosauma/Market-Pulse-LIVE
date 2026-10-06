@@ -36,6 +36,7 @@ export async function loadVolTermStructure(): Promise<VolTermStructurePayload> {
         spxSpread1m1y: null,
         sx5eSpread1m3m: null,
         sx5eSpread1m1y: null,
+        historySnapshots: null,
         unavailableReason: "Could not load official volatility term-structure files.",
       };
     } finally {

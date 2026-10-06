@@ -52,7 +52,42 @@ function resolveMethodologyNote(
       "MOF–China government bond yield curve based on Chinese government bond market prices"
     );
   }
+  if (snapshot.source === "Deutsche Bundesbank" || snapshot.source === "Banque de France") {
+    return registryNote || getMaturityMethodologyNote(countryId, maturity) || snapshot.source;
+  }
   return registryNote || getMaturityMethodologyNote(countryId, maturity) || snapshot.source;
+}
+
+function tradingViewCopy(countryId: SovereignCountryId): {
+  publisher: string;
+  current: string;
+  comparison: string;
+} {
+  if (countryId === "DE") {
+    return {
+      publisher: "TradingView Germany Government Bond Yields",
+      current:
+        "Whole-curve TradingView fallback. Official Deutsche Bundesbank zero-coupon curve was unavailable. Not the Bundesbank Svensson spot curve.",
+      comparison:
+        "Historical level of the same TradingView Germany government bond yield. Not a Bundesbank zero-coupon spot.",
+    };
+  }
+  if (countryId === "FR") {
+    return {
+      publisher: "TradingView France Government Bond Yields",
+      current:
+        "Whole-curve TradingView fallback. Official Banque de France TEC yields were unavailable. Not Euronext TEC constant-maturity OAT yields.",
+      comparison:
+        "Historical level of the same TradingView France government bond yield. Not a Banque de France TEC yield.",
+    };
+  }
+  return {
+    publisher: "TradingView UK Government Bond Yields",
+    current:
+      "Live UK government bond benchmark yield from TradingView. Not the Bank of England zero-coupon gilt spot curve.",
+    comparison:
+      "Historical level of the same TradingView UK government bond benchmark. Not a Bank of England zero-coupon spot yield.",
+  };
 }
 
 function pointForType(
@@ -108,14 +143,11 @@ function rowFromSnapshotPoint(
   const unavailable = snapshot.unavailableMaturities;
 
   const tradingViewCurrent = snapshot.source === "TradingView";
-  const currentPublisher = tradingViewCurrent ? "TradingView UK Government Bond Yields" : publisher;
-  const comparisonPublisher = tradingViewCurrent ? "TradingView UK Government Bond Yields" : publisher;
-  const currentNote = tradingViewCurrent
-    ? "Live UK government bond benchmark yield from TradingView. Not the Bank of England zero-coupon gilt spot curve."
-    : methodologyNote;
-  const comparisonNote = tradingViewCurrent
-    ? "Historical level of the same TradingView UK government bond benchmark. Not a Bank of England zero-coupon spot yield."
-    : methodologyNote;
+  const tvCopy = tradingViewCopy(countryId);
+  const currentPublisher = tradingViewCurrent ? tvCopy.publisher : publisher;
+  const comparisonPublisher = tradingViewCurrent ? tvCopy.publisher : publisher;
+  const currentNote = tradingViewCurrent ? tvCopy.current : methodologyNote;
+  const comparisonNote = tradingViewCurrent ? tvCopy.comparison : methodologyNote;
 
   let currentType = resolveMaturitySourceType(
     countryId,

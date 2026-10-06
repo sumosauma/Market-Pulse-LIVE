@@ -15,7 +15,10 @@ import {
   computeVolTermYDomain,
   displayVolTermShape,
   VOL_TERM_EXPLAINER,
+  VOL_TERM_HISTORY_IDS,
   VOL_TERM_METHODOLOGY_NOTE,
+  type VolTermHistoryId,
+  type VolTermHistorySnapshot,
   type VolTermStructurePayload,
 } from "@/lib/derivatives/volTermStructure";
 
@@ -114,10 +117,13 @@ export function VolTermStructureChart({
   isLoading: boolean;
 }) {
   const [infoOpen, setInfoOpen] = useState(false);
-  const rows = payload?.chartRows ?? null;
-  const asOf = payload?.asOf ?? null;
+  const [historyId, setHistoryId] = useState<VolTermHistoryId>("Today");
+  const snapshot: VolTermHistorySnapshot | null = payload?.historySnapshots?.[historyId] ?? null;
+  const rows = snapshot?.chartRows ?? null;
+  const asOf = snapshot?.asOf ?? null;
   const yDomain = rows ? computeVolTermYDomain(rows.flatMap((r) => [r.spx, r.sx5e])) : undefined;
-  const unavailable = !isLoading && (!rows || payload?.unavailableReason);
+  const initialLoad = isLoading && !payload;
+  const unavailable = !initialLoad && (!rows || payload?.unavailableReason);
 
   return (
     <div className="w-full min-w-0">
@@ -125,9 +131,27 @@ export function VolTermStructureChart({
         <div className="min-w-0">
           <p className="text-[13px] font-semibold tracking-tight text-foreground">S&P 500 vs EURO STOXX 50</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Official EOD · common as-of {isLoading && !payload ? "…" : formatAsOf(asOf)}
+            Official EOD · common as-of {initialLoad ? "…" : formatAsOf(asOf)}
           </p>
         </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="flex rounded-md border border-border p-0.5" role="tablist" aria-label="Term structure history">
+            {VOL_TERM_HISTORY_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={id === historyId}
+                onClick={() => setHistoryId(id)}
+                className={[
+                  "rounded-sm px-2 py-1 text-[11px] font-medium transition-colors",
+                  id === historyId ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+                ].join(" ")}
+              >
+                {id}
+              </button>
+            ))}
+          </div>
         <TooltipProvider delayDuration={200}>
           <UiTooltip open={infoOpen} onOpenChange={setInfoOpen}>
             <TooltipTrigger asChild>
@@ -150,15 +174,19 @@ export function VolTermStructureChart({
             </TooltipContent>
           </UiTooltip>
         </TooltipProvider>
+        </div>
       </div>
 
-      {isLoading && !rows ? (
+      {initialLoad ? (
         <p className="px-4 py-8 text-center text-[12px] text-muted-foreground">
           Loading official EOD term structure…
         </p>
       ) : unavailable ? (
         <p className="px-4 py-8 text-center text-[12px] text-muted-foreground">
-          {payload?.unavailableReason ?? "Implied volatility term structure unavailable."}
+          {payload?.unavailableReason ??
+            (historyId === "Today"
+              ? "Implied volatility term structure unavailable."
+              : "No shared official EOD on or before that date.")}
         </p>
       ) : (
         <div className="px-3 pt-2 pb-0" style={{ height: CHART_HEIGHT }}>
@@ -196,7 +224,6 @@ export function VolTermStructureChart({
                 stroke={SPX_COLOR}
                 strokeWidth={2}
                 legendType="none"
-                isAnimationActive={false}
                 dot={(dotProps) => <CurveDot cx={dotProps.cx} cy={dotProps.cy} variant="spx" />}
                 activeDot={{ r: 4, fill: SPX_COLOR, stroke: "var(--card)", strokeWidth: 1.5 }}
               />
@@ -208,7 +235,6 @@ export function VolTermStructureChart({
                 strokeDasharray="6 4"
                 strokeWidth={1.5}
                 legendType="none"
-                isAnimationActive={false}
                 dot={(dotProps) => <CurveDot cx={dotProps.cx} cy={dotProps.cy} variant="sx5e" />}
                 activeDot={{ r: 4, fill: SX5E_COLOR, stroke: "var(--card)", strokeWidth: 1.5 }}
               />
@@ -221,18 +247,18 @@ export function VolTermStructureChart({
         <CurveSummary
           label="S&P 500"
           variant="spx"
-          oneMonth={payload?.spx?.oneMonth ?? null}
-          oneYear={payload?.spx?.oneYear ?? null}
-          shape={payload?.spx?.shape ?? null}
-          pending={isLoading && !payload}
+          oneMonth={snapshot?.spx.oneMonth ?? null}
+          oneYear={snapshot?.spx.oneYear ?? null}
+          shape={snapshot?.spx.shape ?? null}
+          pending={initialLoad}
         />
         <CurveSummary
           label="EURO STOXX 50"
           variant="sx5e"
-          oneMonth={payload?.sx5e?.oneMonth ?? null}
-          oneYear={payload?.sx5e?.oneYear ?? null}
-          shape={payload?.sx5e?.shape ?? null}
-          pending={isLoading && !payload}
+          oneMonth={snapshot?.sx5e.oneMonth ?? null}
+          oneYear={snapshot?.sx5e.oneYear ?? null}
+          shape={snapshot?.sx5e.shape ?? null}
+          pending={initialLoad}
         />
       </div>
     </div>

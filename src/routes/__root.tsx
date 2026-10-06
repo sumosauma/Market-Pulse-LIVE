@@ -74,14 +74,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Market Pulse AI" },
+      {
+        name: "description",
+        content: "Institutional macro dashboard for rates, equities, FX, and volatility.",
+      },
+      { property: "og:title", content: "Market Pulse AI" },
+      {
+        property: "og:description",
+        content: "Institutional macro dashboard for rates, equities, FX, and volatility.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {

@@ -106,6 +106,44 @@ function FlagGB({ className }: { className: string }) {
   );
 }
 
+function FlagDE({ className }: { className: string }) {
+  const uid = useId().replace(/:/g, "");
+  const clipId = `sf-de-${uid}`;
+  return (
+    <svg className={className} viewBox="0 0 20 20" aria-hidden>
+      <defs>
+        <clipPath id={clipId}>
+          <circle cx={10} cy={10} r={10} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${clipId})`}>
+        <rect width={20} height={6.67} y={0} fill="#000000" />
+        <rect width={20} height={6.66} y={6.67} fill="#DD0000" />
+        <rect width={20} height={6.67} y={13.33} fill="#FFCE00" />
+      </g>
+    </svg>
+  );
+}
+
+function FlagFR({ className }: { className: string }) {
+  const uid = useId().replace(/:/g, "");
+  const clipId = `sf-fr-${uid}`;
+  return (
+    <svg className={className} viewBox="0 0 20 20" aria-hidden>
+      <defs>
+        <clipPath id={clipId}>
+          <circle cx={10} cy={10} r={10} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${clipId})`}>
+        <rect width={6.67} height={20} x={0} fill="#0055A4" />
+        <rect width={6.66} height={20} x={6.67} fill="#FFFFFF" />
+        <rect width={6.67} height={20} x={13.33} fill="#EF4135" />
+      </g>
+    </svg>
+  );
+}
+
 function FlagCN({ className }: { className: string }) {
   const uid = useId().replace(/:/g, "");
   const clipId = `sf-cn-${uid}`;
@@ -148,6 +186,10 @@ export function SovereignCountryFlag({
       return <FlagGB className={className} />;
     case "CN":
       return <FlagCN className={className} />;
+    case "DE":
+      return <FlagDE className={className} />;
+    case "FR":
+      return <FlagFR className={className} />;
     default:
       return <FlagUS className={className} />;
   }

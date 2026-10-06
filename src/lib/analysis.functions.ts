@@ -81,7 +81,7 @@ export const analyzeMarkets = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) {
-      return { analysis: null, error: "Lovable AI not configured" };
+      return { analysis: null, error: "Morning brief is unavailable." };
     }
 
     const grouped = new Map<string, Quote[]>();
@@ -165,7 +165,8 @@ ${headlinesText || "(no headlines available right now)"}`;
       const { text } = await generateText({ model, prompt });
       return { analysis: text, headlines, error: null };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Analysis failed";
+      const raw = e instanceof Error ? e.message : "Analysis failed";
+      const msg = /lovable/i.test(raw) ? "Morning brief is unavailable." : raw;
       return { analysis: null, headlines, error: msg };
     }
   });

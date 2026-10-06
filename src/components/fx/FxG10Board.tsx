@@ -11,6 +11,7 @@ import {
 } from "@/lib/fx/desk";
 import { useFxDeskMarket } from "@/lib/fx/useFxDesk";
 import { fmtPct } from "./fxFormat";
+import { FxCurrencyFlag } from "./FxPairFlags";
 import { FxChips, FxInfo, FxSectionStatus } from "./FxSection";
 
 const EMPTY_CELLS = Object.fromEntries(G10_CURRENCIES.map((currency) => [currency, null])) as Record<G10Currency, number | null>;
@@ -98,8 +99,11 @@ export function FxG10Board({
               <tr className="border-b border-border text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <th className="sticky left-0 z-20 bg-card px-3 py-2 text-left font-semibold"> </th>
                 {G10_CURRENCIES.map((currency) => (
-                  <th key={currency} className="px-1.5 py-2 text-center font-semibold">
-                    {currency}
+                  <th key={currency} className="px-1 py-1.5 text-center font-semibold">
+                    <span className="inline-flex flex-col items-center gap-0.5">
+                      <FxCurrencyFlag currency={currency} />
+                      <span>{currency}</span>
+                    </span>
                   </th>
                 ))}
                 <th className="sticky right-0 z-20 border-l border-border bg-card px-3 py-2 text-right font-semibold">
@@ -113,7 +117,10 @@ export function FxG10Board({
                 return (
                 <tr key={row.currency} className="border-b border-border/50 last:border-0">
                   <th className="sticky left-0 z-10 bg-card px-3 py-1.5 text-left text-[11px] font-semibold text-foreground">
-                    {row.currency}
+                    <span className="inline-flex items-center gap-1.5">
+                      <FxCurrencyFlag currency={row.currency} />
+                      {row.currency}
+                    </span>
                   </th>
                   {G10_CURRENCIES.map((column) => {
                     const diagonal = row.currency === column;
@@ -169,7 +176,10 @@ function SummaryStat({
   return (
     <div className="flex items-baseline gap-2">
       <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label}</span>
-      <span className="text-[13px] font-semibold text-foreground">{currency ?? "—"}</span>
+      <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+        {currency ? <FxCurrencyFlag currency={currency} size="sm" /> : null}
+        {currency ?? "—"}
+      </span>
       <span className={`font-mono text-[12px] tabular-nums ${changePctClass(broad ?? null)}`}>
         {broad === undefined ? "" : `${fmtPct(broad)} broad`}
       </span>
