@@ -32,6 +32,9 @@ export function carryForPair(
   pair: Pick<FxPairDef, "baseBank" | "quoteBank">,
   rowsByBank: ReadonlyMap<PolicyBankId, PolicyRateRow>,
 ): FxCarry {
+  if (!pair.baseBank || !pair.quoteBank) {
+    return { bps: null, usedMidpoint: false, detail: null };
+  }
   const base = rowsByBank.get(pair.baseBank);
   const quote = rowsByBank.get(pair.quoteBank);
   if (!isLivePolicyRateForCarry(base) || !isLivePolicyRateForCarry(quote)) {
@@ -49,6 +52,23 @@ export function carryForPair(
     usedMidpoint,
     detail: `${baseLabel} − ${quoteLabel}`,
   };
+}
+
+export function formatPolicyDiff(bps: number | null): string {
+  if (bps == null || !Number.isFinite(bps)) return "—";
+  const rounded = Math.sign(bps) * Math.round(Math.abs(bps));
+  if (rounded === 0) return "0 bp";
+  return rounded > 0 ? `+${rounded} bp` : `−${Math.abs(rounded)} bp`;
+}
+
+/** Same differential as an annualised percent. Not an FX forward. */
+export function formatIndicativeCarry(bps: number | null): string {
+  if (bps == null || !Number.isFinite(bps)) return "—";
+  const pct = bps / 100;
+  const abs = Math.abs(pct).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (pct > 0) return `+${abs}%`;
+  if (pct < 0) return `−${abs}%`;
+  return `${abs}%`;
 }
 
 export function formatCarryBps(bps: number | null): string {

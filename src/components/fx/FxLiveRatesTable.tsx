@@ -53,9 +53,9 @@ export function FxLiveRatesTable({
               <th className="px-2 py-2 font-semibold">Rate</th>
               <th
                 className="px-2 py-2 font-semibold text-right"
-                title="Policy rate of the base currency minus the quote currency. Range targets (Fed funds) use the midpoint."
+                title="Policy rate of the base currency minus the quote currency, in basis points. This is not an FX forward. Range targets (Fed funds) use the midpoint."
               >
-                Carry (bps)
+                Policy diff.
               </th>
               <th className="px-2 py-2 font-semibold">Change (1D)</th>
               <th className="px-4 py-2 font-semibold text-right">Change (1D %)</th>

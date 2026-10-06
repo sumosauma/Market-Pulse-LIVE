@@ -60,7 +60,8 @@ function prevClose(points: readonly FxPoint[], asOf: string | null, latestRate: 
 
 async function loadLiveTable(): Promise<FxLivePayload> {
   const fresh = readFreshLive();
-  if (fresh) {
+  const coversPairs = fresh != null && FX_PAIRS.every((pair) => fresh.rows.some((row) => row.pairId === pair.id));
+  if (fresh && coversPairs) {
     console.log(`[FX] live cache hit asOf=${fresh.asOf} rows=${fresh.rows.length}`);
     return { ...fresh, fromCache: true, rows: fresh.rows.map((r) => ({ ...r, fromCache: true })) };
   }

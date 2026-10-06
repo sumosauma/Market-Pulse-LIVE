@@ -1,14 +1,14 @@
 import { useId } from "react";
 
 /** Visible status indicator. Unmounts as soon as fetching stops. */
-export function YieldCurveFetchSpinner() {
+export function YieldCurveFetchSpinner({ label = "Loading yield curve" }: { label?: string }) {
   const gradientId = `yc-arc-${useId().replace(/:/g, "")}`;
 
   return (
     <span
       className="inline-flex size-[18px] shrink-0 items-center justify-center"
       role="status"
-      aria-label="Loading yield curve"
+      aria-label={label}
     >
       <svg
         viewBox="0 0 48 48"

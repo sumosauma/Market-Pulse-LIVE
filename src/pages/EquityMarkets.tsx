@@ -4,6 +4,7 @@ import { EquityDetailPanel } from "@/components/equities/EquityDetailPanel";
 import { EquityIndexTable } from "@/components/equities/EquityIndexTable";
 import { EquityMapHeatmap } from "@/components/equities/EquityMapHeatmap";
 import { EquitySummaryCards } from "@/components/equities/EquitySummaryCards";
+import { UsSectorRotation } from "@/components/equities/UsSectorRotation";
 import { useElementWidth } from "@/hooks/useElementWidth";
 import { fluidEquityMonitorMaxWidth } from "@/lib/equities/equityMapFluidLayout";
 import { MAP_PALETTE } from "@/lib/equities/equityMapStyle";
@@ -70,6 +71,8 @@ export default function EquityMarketsPage() {
               />
             </div>
           </div>
+
+          <UsSectorRotation />
 
           <section className="overflow-hidden rounded-xl bg-card/40 ring-1 ring-border/50">
             <header className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3">

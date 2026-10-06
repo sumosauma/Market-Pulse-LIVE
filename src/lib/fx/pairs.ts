@@ -2,11 +2,15 @@ import type { PolicyBankId } from "@/lib/policyRates/types";
 
 export const FX_PAIR_IDS = [
   "eurusd",
-  "usdjpy",
   "gbpusd",
+  "usdjpy",
   "usdchf",
-  "usdsek",
+  "usdcad",
+  "audusd",
+  "nzdusd",
   "eursek",
+  "usdsek",
+  "eurnok",
   "noksek",
 ] as const;
 
@@ -18,17 +22,21 @@ export type FxPairDef = Readonly<{
   from: string;
   to: string;
   digits: number;
-  baseBank: PolicyBankId;
-  quoteBank: PolicyBankId;
+  baseBank: PolicyBankId | null;
+  quoteBank: PolicyBankId | null;
 }>;
 
 export const FX_PAIRS: readonly FxPairDef[] = [
   { id: "eurusd", label: "EUR/USD", from: "EUR", to: "USD", digits: 4, baseBank: "ecb", quoteBank: "fed" },
-  { id: "usdjpy", label: "USD/JPY", from: "USD", to: "JPY", digits: 3, baseBank: "fed", quoteBank: "boj" },
   { id: "gbpusd", label: "GBP/USD", from: "GBP", to: "USD", digits: 4, baseBank: "boe", quoteBank: "fed" },
+  { id: "usdjpy", label: "USD/JPY", from: "USD", to: "JPY", digits: 3, baseBank: "fed", quoteBank: "boj" },
   { id: "usdchf", label: "USD/CHF", from: "USD", to: "CHF", digits: 4, baseBank: "fed", quoteBank: "snb" },
-  { id: "usdsek", label: "USD/SEK", from: "USD", to: "SEK", digits: 4, baseBank: "fed", quoteBank: "riksbank" },
+  { id: "usdcad", label: "USD/CAD", from: "USD", to: "CAD", digits: 4, baseBank: "fed", quoteBank: "boc" },
+  { id: "audusd", label: "AUD/USD", from: "AUD", to: "USD", digits: 4, baseBank: "rba", quoteBank: "fed" },
+  { id: "nzdusd", label: "NZD/USD", from: "NZD", to: "USD", digits: 4, baseBank: null, quoteBank: "fed" },
   { id: "eursek", label: "EUR/SEK", from: "EUR", to: "SEK", digits: 4, baseBank: "ecb", quoteBank: "riksbank" },
+  { id: "usdsek", label: "USD/SEK", from: "USD", to: "SEK", digits: 4, baseBank: "fed", quoteBank: "riksbank" },
+  { id: "eurnok", label: "EUR/NOK", from: "EUR", to: "NOK", digits: 4, baseBank: "ecb", quoteBank: "norges" },
   { id: "noksek", label: "NOK/SEK", from: "NOK", to: "SEK", digits: 4, baseBank: "norges", quoteBank: "riksbank" },
 ];
 
@@ -38,6 +46,8 @@ export const FX_CURRENCY_FLAG: Record<string, string> = {
   JPY: "JP",
   GBP: "GB",
   CHF: "CH",
+  CAD: "CA",
+  AUD: "AU",
   SEK: "SE",
   NOK: "NO",
 };
