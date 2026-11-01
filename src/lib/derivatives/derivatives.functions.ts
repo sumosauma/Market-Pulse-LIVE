@@ -6,7 +6,19 @@ import { iv20FromListedOptions } from "./listedOptionsIv";
 import { DERIVATIVES_MARKETS, type DerivativesMarketDef } from "./markets";
 import { fetchNasdaqOmxs30OptionQuotes } from "./nasdaqNordicOptions";
 import { fetchNordnetOmxs30OptionQuotes } from "./nordnetOmxs30Options";
-import { computeRv20, computeVrp, rollingRv20Series, rv20Percentile1y } from "./realizedVol";
+import { VIX_CBOE_HISTORY_URL } from "./vixEodPercentile";
+import { fetchOfficialText } from "./officialFetch";
+import { parseCboeVolHistory, parseStoxxVolHistory } from "./volTermStructure";
+import { VSTOXX_STOXX_EOD_URL, VSTOXX_SYMBOL } from "./vstoxxQuote";
+import {
+  computeRv20,
+  computeVrp,
+  rollingRv20Series,
+  rv20Percentile1y,
+  vrpHistoryFromImpliedAndRv,
+  vrpPercentile1y,
+  type Rv20Point,
+} from "./realizedVol";
 import type { Iv20Result } from "./impliedVol";
 import {
   fetchTradingViewOptionsChain,
@@ -14,7 +26,7 @@ import {
 } from "./tradingviewOptions";
 import type { MarketVolatilityPayload, MarketVolRow, VolMetric } from "./types";
 
-export const DERIVATIVES_VOL_QUERY_KEY = ["derivatives-vol", "v6"] as const;
+export const DERIVATIVES_VOL_QUERY_KEY = ["derivatives-vol", "v9"] as const;
 
 let inflight: Promise<MarketVolatilityPayload> | null = null;
 
@@ -37,21 +49,26 @@ async function loadDailyCloses(market: DerivativesMarketDef) {
   }
 }
 
-async function loadRv20(market: DerivativesMarketDef): Promise<VolMetric> {
+async function loadRv20(market: DerivativesMarketDef): Promise<{ metric: VolMetric; series: Rv20Point[] }> {
   try {
     const loaded = await loadDailyCloses(market);
     const rv = computeRv20(loaded.points);
-    if (!rv) return emptyMetric("Need 21 daily closes for 20-day realized volatility");
+    if (!rv) {
+      return { metric: emptyMetric("Need 21 daily closes for 20-day realized volatility"), series: [] };
+    }
     const series = rollingRv20Series(loaded.points);
     const ranked = rv20Percentile1y(series);
     return {
-      ...metric(rv.rv20, rv.asOf, loaded.sourceLabel),
-      percentile1y: ranked?.percentile ?? null,
-      percentileObservationCount: ranked?.observationCount ?? 0,
+      metric: {
+        ...metric(rv.rv20, rv.asOf, loaded.sourceLabel),
+        percentile1y: ranked?.percentile ?? null,
+        percentileObservationCount: ranked?.observationCount ?? 0,
+      },
+      series,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    return emptyMetric(msg.slice(0, 160));
+    return { metric: emptyMetric(msg.slice(0, 160)), series: [] };
   }
 }
 
@@ -181,13 +198,49 @@ async function loadIv20(market: DerivativesMarketDef): Promise<VolMetric> {
   }
 }
 
+async function loadVrpImpliedHistory(
+  market: DerivativesMarketDef,
+): Promise<{ date: string; close: number }[]> {
+  try {
+    if (market.id === "spx") {
+      const text = await fetchOfficialText(VIX_CBOE_HISTORY_URL, "text/csv,*/*", "https://www.cboe.com/");
+      return text ? parseCboeVolHistory(text) : [];
+    }
+    if (market.id === "sx5e") {
+      const text = await fetchOfficialText(
+        VSTOXX_STOXX_EOD_URL,
+        "text/plain,text/csv,*/*",
+        "https://www.stoxx.com/",
+      );
+      return text ? parseStoxxVolHistory(text, VSTOXX_SYMBOL) : [];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 async function loadMarket(market: DerivativesMarketDef): Promise<MarketVolRow> {
-  const [rv20, iv20] = await Promise.all([loadRv20(market), loadIv20(market)]);
+  const [rvPack, iv20, impliedHistory] = await Promise.all([
+    loadRv20(market),
+    loadIv20(market),
+    loadVrpImpliedHistory(market),
+  ]);
+  const rv20 = rvPack.metric;
   const vrpValue = computeVrp(iv20.value, rv20.value);
+  const ranked = vrpPercentile1y(vrpHistoryFromImpliedAndRv(impliedHistory, rvPack.series));
   const vrp: VolMetric =
     vrpValue == null
-      ? emptyMetric(iv20.value == null ? "Needs 20-day implied volatility" : (rv20.unavailableReason ?? "Needs 20-day realized volatility"))
-      : metric(vrpValue, iv20.asOf ?? rv20.asOf ?? null, "implied minus realized");
+      ? {
+          ...emptyMetric(iv20.value == null ? "Needs 20-day implied volatility" : (rv20.unavailableReason ?? "Needs 20-day realized volatility")),
+          percentile1y: ranked?.percentile ?? null,
+          percentileObservationCount: ranked?.observationCount ?? 0,
+        }
+      : {
+          ...metric(vrpValue, iv20.asOf ?? rv20.asOf ?? null, "implied minus realized"),
+          percentile1y: ranked?.percentile ?? null,
+          percentileObservationCount: ranked?.observationCount ?? 0,
+        };
 
   return {
     id: market.id,

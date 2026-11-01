@@ -95,6 +95,44 @@ export function rv20Percentile1y(series: readonly Rv20Point[]): PercentileResult
   );
 }
 
+export type VrpPoint = {
+  date: string;
+  vrp: number;
+};
+
+/**
+ * Official implied-vol index minus same-date RV20.
+ * Dates missing either leg are skipped. No forward-fill.
+ * Order follows the realized-vol series.
+ */
+export function vrpHistoryFromImpliedAndRv(
+  implied: readonly { date: string; close: number }[],
+  rv: readonly Rv20Point[],
+): VrpPoint[] {
+  const ivByDate = new Map<string, number>();
+  for (const row of implied) {
+    if (!row.date || !Number.isFinite(row.close) || row.close <= 0) continue;
+    ivByDate.set(row.date, row.close);
+  }
+  const out: VrpPoint[] = [];
+  for (const row of rv) {
+    const iv = ivByDate.get(row.date);
+    if (iv == null || !Number.isFinite(row.rv20)) continue;
+    out.push({ date: row.date, vrp: iv - row.rv20 });
+  }
+  return out;
+}
+
+/** 1Y percentile of the latest premium vs the latest 252 premium observations (includes today). */
+export function vrpPercentile1y(series: readonly VrpPoint[]): PercentileResult | null {
+  if (series.length === 0) return null;
+  const latest = series[series.length - 1]!;
+  return calculatePercentile(
+    series.map((row) => row.vrp),
+    latest.vrp,
+  );
+}
+
 export function computeVrp(iv20Pct: number | null, rv20Pct: number | null): number | null {
   if (iv20Pct == null || rv20Pct == null) return null;
   if (!Number.isFinite(iv20Pct) || !Number.isFinite(rv20Pct)) return null;

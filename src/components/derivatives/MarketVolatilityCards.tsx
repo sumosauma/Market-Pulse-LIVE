@@ -1,8 +1,12 @@
+import type { ReactNode } from "react";
 import { EquityCountryFlag } from "@/components/equities/EquityCountryFlag";
 import { PercentileScale } from "@/components/derivatives/PercentileScale";
-import { formatVolPct, formatVrp, vrpToneClass } from "@/lib/derivatives/format";
+import { formatOrdinal, formatVolPct, formatVrp, vrpToneClass } from "@/lib/derivatives/format";
 import { DERIVATIVES_MARKETS } from "@/lib/derivatives/markets";
 import type { MarketVolRow, VolMetric } from "@/lib/derivatives/types";
+
+const VRP_PERCENTILE_EXPLAINER =
+  "Shows where the latest implied-minus-realized premium ranks among approximately the last 252 trading sessions. S&P 500 uses VIX minus 20-day realized volatility. Euro Stoxx 50 uses VSTOXX minus 20-day realized volatility. A higher percentile means a higher premium than usual, not a buy or sell signal.";
 
 const CARD =
   "rounded-md border border-border bg-card/80 px-4 py-3.5 shadow-[0_1px_0_0_rgba(15,23,42,0.03)]";
@@ -14,6 +18,7 @@ function MetricRow({
   valueClass,
   pending,
   metric,
+  scale,
 }: {
   label: string;
   hint: string;
@@ -21,6 +26,7 @@ function MetricRow({
   valueClass?: string;
   pending: boolean;
   metric: VolMetric | null;
+  scale?: ReactNode;
 }) {
   const reason = !pending && metric && metric.value == null ? metric.unavailableReason : null;
   return (
@@ -34,13 +40,16 @@ function MetricRow({
           <p className="mt-1 text-[10px] leading-snug text-amber-700 dark:text-amber-400">{reason}</p>
         ) : null}
       </div>
-      <div
-        className={[
-          "shrink-0 max-w-[48%] text-right font-mono text-[17px] font-semibold tabular-nums tracking-tight leading-tight",
-          pending ? "text-muted-foreground" : (valueClass ?? "text-foreground"),
-        ].join(" ")}
-      >
-        {pending ? "…" : value}
+      <div className="shrink-0 max-w-[58%] text-right">
+        <div
+          className={[
+            "font-mono text-[17px] font-semibold tabular-nums tracking-tight leading-tight",
+            pending ? "text-muted-foreground" : (valueClass ?? "text-foreground"),
+          ].join(" ")}
+        >
+          {pending ? "…" : value}
+        </div>
+        {scale ? <div className="ml-auto mt-1.5 w-[9.5rem]">{scale}</div> : null}
       </div>
     </div>
   );
@@ -84,6 +93,25 @@ function MarketCard({ row, pending }: { row: MarketVolRow | null; pending: boole
           valueClass={vrpToneClass(row?.vrp.value ?? null)}
           pending={pending}
           metric={row?.vrp ?? null}
+          scale={
+            <div>
+              <div
+                className={[
+                  "mb-0.5 font-mono text-[11px] font-semibold tabular-nums tracking-tight",
+                  pending ? "text-muted-foreground" : "text-foreground",
+                ].join(" ")}
+              >
+                {pending ? "…" : formatOrdinal(row?.vrp.percentile1y ?? null)}
+              </div>
+              <PercentileScale
+                percentile={row?.vrp.percentile1y ?? null}
+                pending={pending}
+                compact
+                showHeader={false}
+                explainer={VRP_PERCENTILE_EXPLAINER}
+              />
+            </div>
+          }
         />
       </div>
     </article>

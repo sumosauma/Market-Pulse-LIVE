@@ -2,6 +2,7 @@ import { EquityCountryFlag } from "@/components/equities/EquityCountryFlag";
 import {
   VIX_IMPLIED_MOVE_EXPLAINER,
   VSTOXX_IMPLIED_MOVE_EXPLAINER,
+  OneDayImpliedMoveLine,
   VixImpliedMoveLine,
   vixThirtyDayOneSigmaMovePct,
 } from "@/components/markets/VixImpliedMoveLine";
@@ -39,6 +40,7 @@ function VolIndexCard({
   dayMove: SpxVixDayMove | null;
 }) {
   const impliedMove = showImpliedMove(row, pending);
+  const showOneDayMove = row.id === "vix" || row.id === "vstoxx";
   const explainer = row.id === "vstoxx" ? VSTOXX_IMPLIED_MOVE_EXPLAINER : VIX_IMPLIED_MOVE_EXPLAINER;
   return (
     <article className={CARD}>
@@ -77,36 +79,42 @@ function VolIndexCard({
               </span>
             </div>
           </div>
-          <VixImpliedMoveLine vix={row.last} explainer={explainer} />
+          <div>
+            <VixImpliedMoveLine vix={row.last} explainer={explainer} />
+            {showOneDayMove ? <OneDayImpliedMoveLine vol={row.last} /> : null}
+          </div>
         </div>
       ) : (
-        <div className="flex items-end justify-between gap-3">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              Last
+        <div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                Last
+              </div>
+              <div
+                className={[
+                  "mt-1 font-mono text-[22px] font-semibold tabular-nums tracking-tight",
+                  pending ? "text-muted-foreground" : "text-foreground",
+                ].join(" ")}
+              >
+                {pending ? "…" : formatVolIndex(row.last)}
+              </div>
             </div>
-            <div
-              className={[
-                "mt-1 font-mono text-[22px] font-semibold tabular-nums tracking-tight",
-                pending ? "text-muted-foreground" : "text-foreground",
-              ].join(" ")}
-            >
-              {pending ? "…" : formatVolIndex(row.last)}
+            <div className="text-right">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                Change
+              </div>
+              <div
+                className={[
+                  "mt-1 font-mono text-[15px] font-semibold tabular-nums",
+                  pending ? "text-muted-foreground" : changePctClass(row.changePct),
+                ].join(" ")}
+              >
+                {pending ? "…" : formatSignedPct(row.changePct)}
+              </div>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-              Change
-            </div>
-            <div
-              className={[
-                "mt-1 font-mono text-[15px] font-semibold tabular-nums",
-                pending ? "text-muted-foreground" : changePctClass(row.changePct),
-              ].join(" ")}
-            >
-              {pending ? "…" : formatSignedPct(row.changePct)}
-            </div>
-          </div>
+          {showOneDayMove ? <OneDayImpliedMoveLine vol={null} /> : null}
         </div>
       )}
       <div className="mt-3 space-y-2 border-t border-border/70 pt-3">

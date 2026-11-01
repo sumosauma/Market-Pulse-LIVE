@@ -8,7 +8,10 @@ export type VolMetric = {
   asOf: string | null;
   sourceLabel: string | null;
   unavailableReason: string | null;
-  /** RV20 only: 1Y percentile among the latest ~252 rolling RV20 observations. */
+  /**
+   * RV20: 1Y percentile of rolling RV20.
+   * VRP: 1Y percentile of the official 30-day implied index minus same-date RV20.
+   */
   percentile1y?: number | null;
   percentileObservationCount?: number;
 };

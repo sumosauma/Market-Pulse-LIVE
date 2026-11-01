@@ -4,7 +4,7 @@ const DISK_CACHE_PATH = "data/cache/derivatives-vol.json";
 export const DERIVATIVES_VOL_CACHE_MS = 15 * 60 * 1000;
 
 type DiskCacheFile = {
-  version: 6;
+  version: 9;
   savedAt: string;
   payload: MarketVolatilityPayload | null;
 };
@@ -18,12 +18,12 @@ function readDisk(): DiskCacheFile {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { readFileSync, existsSync } = require("fs") as typeof import("fs");
-    if (!existsSync(DISK_CACHE_PATH)) return { version: 6, savedAt: "", payload: null };
+    if (!existsSync(DISK_CACHE_PATH)) return { version: 9, savedAt: "", payload: null };
     const raw = JSON.parse(readFileSync(DISK_CACHE_PATH, "utf8")) as DiskCacheFile;
-    if (raw?.version !== 6) return { version: 6, savedAt: "", payload: null };
-    return { version: 6, savedAt: raw.savedAt ?? "", payload: raw.payload ?? null };
+    if (raw?.version !== 9) return { version: 9, savedAt: "", payload: null };
+    return { version: 9, savedAt: raw.savedAt ?? "", payload: raw.payload ?? null };
   } catch {
-    return { version: 6, savedAt: "", payload: null };
+    return { version: 9, savedAt: "", payload: null };
   }
 }
 
@@ -69,5 +69,5 @@ export function writeVolCache(payload: MarketVolatilityPayload): void {
   const savedAt = new Date().toISOString();
   memory.savedAt = savedAt;
   memory.payload = payload;
-  writeDisk({ version: 6, savedAt, payload });
+  writeDisk({ version: 9, savedAt, payload });
 }

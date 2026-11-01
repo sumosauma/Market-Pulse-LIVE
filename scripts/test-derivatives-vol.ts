@@ -30,6 +30,8 @@ import {
   rollingRv20Series,
   rv20Percentile1y,
   sampleStdev,
+  vrpHistoryFromImpliedAndRv,
+  vrpPercentile1y,
 } from "../src/lib/derivatives/realizedVol.ts";
 import { calculatePercentile } from "../src/lib/derivatives/percentile.ts";
 
@@ -158,6 +160,25 @@ function pricesFromReturns(start: number, returns: readonly number[]): number[] 
   const ranked = rv20Percentile1y(minOk)!;
   assert(ranked.observationCount === 200, "200 observations is enough");
   assertClose(ranked.percentile, (1 / 200) * 100, 1e-12, "min-observation window includes today");
+}
+
+{
+  const implied = [
+    ...Array.from({ length: 210 }, (_, i) => ({ date: `d${String(i).padStart(3, "0")}`, close: 20 })),
+    { date: "d210", close: 30 },
+  ];
+  const rv = implied.map((row, i) => ({ date: row.date, rv20: i === implied.length - 1 ? 10 : 12 }));
+  const history = vrpHistoryFromImpliedAndRv(
+    [...implied, { date: "missing-rv", close: 99 }, { date: "d000", close: Number.NaN }],
+    rv,
+  );
+  assert(history.length === 211, `joined premium days, got ${history.length}`);
+  assert(history[0]!.vrp === 8, "premium is implied minus realized");
+  assert(history[history.length - 1]!.vrp === 20, "latest premium uses same-date legs");
+  assert(!history.some((row) => row.date === "missing-rv"), "implied date without realized vol is dropped");
+  const ranked = vrpPercentile1y(history);
+  assert(ranked != null && ranked.observationCount === 211, "VRP percentile includes the joined history");
+  assert(vrpPercentile1y(history.slice(0, 199)) === null, "VRP percentile withheld below 200 observations");
 }
 
 {
