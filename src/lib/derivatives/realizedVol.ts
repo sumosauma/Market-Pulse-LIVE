@@ -22,6 +22,34 @@ export function logReturns(closes: readonly number[]): number[] {
   return out;
 }
 
+/**
+ * Simple returns for series that may include zero or negative prices (e.g. power).
+ * Uses (P_t − P_{t−1}) / |P_{t−1}| when P_{t−1} ≠ 0. Skips pairs that cannot form a return.
+ */
+export function simpleAbsReturns(closes: readonly number[]): number[] {
+  const out: number[] = [];
+  for (let i = 1; i < closes.length; i++) {
+    const prev = closes[i - 1]!;
+    const next = closes[i]!;
+    if (!Number.isFinite(prev) || !Number.isFinite(next) || prev === 0) continue;
+    out.push((next - prev) / Math.abs(prev));
+  }
+  return out;
+}
+
+export type ComputeRv20Options = {
+  /**
+   * Reject a 21-session window when any consecutive pair is more than this many
+   * calendar days apart (unexplained gap). Weekends/holidays within the limit are OK.
+   */
+  maxGapDays?: number;
+  /**
+   * When true, keep non-positive prices and use simple abs-denominator returns for the
+   * window if any price is ≤ 0. Log returns are still used when every price is > 0.
+   */
+  allowNonPositive?: boolean;
+};
+
 /** Sample standard deviation (n − 1). */
 export function sampleStdev(values: readonly number[]): number | null {
   if (values.length < 2) return null;
@@ -38,17 +66,43 @@ export function annualizeDailyVol(dailyStdev: number): number {
   return dailyStdev * Math.sqrt(TRADING_DAYS_PER_YEAR) * 100;
 }
 
-function validDailyCloses(points: readonly DailyClose[]): DailyClose[] {
-  return points.filter((p) => Number.isFinite(p.close) && p.close > 0);
+function validDailyCloses(points: readonly DailyClose[], allowNonPositive = false): DailyClose[] {
+  return points.filter((p) => Number.isFinite(p.close) && (allowNonPositive || p.close > 0));
+}
+
+function calendarDaysBetween(earlier: string, later: string): number | null {
+  const a = Date.parse(`${earlier.slice(0, 10)}T00:00:00Z`);
+  const b = Date.parse(`${later.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return Math.round((b - a) / 86_400_000);
+}
+
+function windowRespectsGaps(window: readonly DailyClose[], maxGapDays: number): boolean {
+  for (let i = 1; i < window.length; i++) {
+    const gap = calendarDaysBetween(window[i - 1]!.date, window[i]!.date);
+    if (gap == null || gap < 1 || gap > maxGapDays) return false;
+  }
+  return true;
 }
 
 /**
- * 20-session realized vol from a 21-close window (20 log returns).
+ * 20-session realized vol from a 21-close window (20 returns).
  * Sample stdev; √252 annualization. Result is a percent (e.g. 9.5).
  */
-function rv20FromWindow(window: readonly DailyClose[]): Rv20Point | null {
+function rv20FromWindow(
+  window: readonly DailyClose[],
+  options: ComputeRv20Options = {},
+): Rv20Point | null {
   if (window.length !== RV20_WINDOW + 1) return null;
-  const returns = logReturns(window.map((p) => p.close));
+  if (options.maxGapDays != null && !windowRespectsGaps(window, options.maxGapDays)) return null;
+  const closes = window.map((p) => p.close);
+  const allPositive = closes.every((close) => close > 0);
+  const returns =
+    allPositive
+      ? logReturns(closes)
+      : options.allowNonPositive
+        ? simpleAbsReturns(closes)
+        : [];
   if (returns.length !== RV20_WINDOW) return null;
   const sd = sampleStdev(returns);
   if (sd == null || !Number.isFinite(sd)) return null;
@@ -57,14 +111,17 @@ function rv20FromWindow(window: readonly DailyClose[]): Rv20Point | null {
 }
 
 /**
- * 20-session realized vol from daily log returns.
+ * 20-session realized vol from daily returns.
  * Uses the last 21 valid closes → 20 returns; sample stdev; √252 annualization.
  * Result is a percent (e.g. 9.5).
  */
-export function computeRv20(points: readonly DailyClose[]): { rv20: number; asOf: string } | null {
-  const valid = validDailyCloses(points);
+export function computeRv20(
+  points: readonly DailyClose[],
+  options: ComputeRv20Options = {},
+): { rv20: number; asOf: string } | null {
+  const valid = validDailyCloses(points, options.allowNonPositive === true);
   if (valid.length < RV20_WINDOW + 1) return null;
-  const computed = rv20FromWindow(valid.slice(-(RV20_WINDOW + 1)));
+  const computed = rv20FromWindow(valid.slice(-(RV20_WINDOW + 1)), options);
   if (!computed) return null;
   return { rv20: computed.rv20, asOf: computed.date };
 }
@@ -74,12 +131,15 @@ export function computeRv20(points: readonly DailyClose[]): { rv20: number; asOf
  * Each observation uses the same 21-close / 20-return window as `computeRv20`.
  * The last point is identical to `computeRv20(points)`.
  */
-export function rollingRv20Series(points: readonly DailyClose[]): Rv20Point[] {
-  const valid = validDailyCloses(points);
+export function rollingRv20Series(
+  points: readonly DailyClose[],
+  options: ComputeRv20Options = {},
+): Rv20Point[] {
+  const valid = validDailyCloses(points, options.allowNonPositive === true);
   if (valid.length < RV20_WINDOW + 1) return [];
   const out: Rv20Point[] = [];
   for (let end = RV20_WINDOW; end < valid.length; end++) {
-    const computed = rv20FromWindow(valid.slice(end - RV20_WINDOW, end + 1));
+    const computed = rv20FromWindow(valid.slice(end - RV20_WINDOW, end + 1), options);
     if (computed) out.push(computed);
   }
   return out;
@@ -93,6 +153,52 @@ export function rv20Percentile1y(series: readonly Rv20Point[]): PercentileResult
     series.map((row) => row.rv20),
     latest.rv20,
   );
+}
+
+/**
+ * 20-session price-change volatility: sample stdev of absolute daily changes ΔP = P_t − P_{t−1}.
+ * Not annualized and not a percentage — use for series where %/log returns are inappropriate
+ * (e.g. power prices that can be zero or negative). Result is in the same units as the price.
+ */
+export function computeAbsChangeVol20(
+  points: readonly DailyClose[],
+  options: Pick<ComputeRv20Options, "maxGapDays"> = {},
+): { vol: number; asOf: string } | null {
+  const valid = points.filter((p) => Number.isFinite(p.close));
+  if (valid.length < RV20_WINDOW + 1) return null;
+  const window = valid.slice(-(RV20_WINDOW + 1));
+  if (options.maxGapDays != null && !windowRespectsGaps(window, options.maxGapDays)) return null;
+  const changes: number[] = [];
+  for (let i = 1; i < window.length; i++) {
+    changes.push(window[i]!.close - window[i - 1]!.close);
+  }
+  if (changes.length !== RV20_WINDOW) return null;
+  const sd = sampleStdev(changes);
+  if (sd == null || !Number.isFinite(sd)) return null;
+  return { vol: sd, asOf: window[window.length - 1]!.date };
+}
+
+/** Rolling absolute-change vol series (same window rules as `computeAbsChangeVol20`). */
+export function rollingAbsChangeVol20Series(
+  points: readonly DailyClose[],
+  options: Pick<ComputeRv20Options, "maxGapDays"> = {},
+): Rv20Point[] {
+  const valid = points.filter((p) => Number.isFinite(p.close));
+  if (valid.length < RV20_WINDOW + 1) return [];
+  const out: Rv20Point[] = [];
+  for (let end = RV20_WINDOW; end < valid.length; end++) {
+    const window = valid.slice(end - RV20_WINDOW, end + 1);
+    if (options.maxGapDays != null && !windowRespectsGaps(window, options.maxGapDays)) continue;
+    const changes: number[] = [];
+    for (let i = 1; i < window.length; i++) {
+      changes.push(window[i]!.close - window[i - 1]!.close);
+    }
+    if (changes.length !== RV20_WINDOW) continue;
+    const sd = sampleStdev(changes);
+    if (sd == null || !Number.isFinite(sd)) continue;
+    out.push({ date: window[window.length - 1]!.date, rv20: sd });
+  }
+  return out;
 }
 
 export type VrpPoint = {

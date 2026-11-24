@@ -4,6 +4,10 @@ const FLAG_SIZES = {
   xs: "h-[12px] w-[12px]",
   sm: "h-[16px] w-[16px]",
   md: "h-[22px] w-[22px]",
+  /** Desk signals FX pairs — ~18% smaller than prior 40px lg. */
+  lg: "h-[33px] w-[33px]",
+  /** Desk signals — footprint close to commodity `xl` marks (~64px). */
+  xl: "h-[44px] w-[44px]",
 } as const;
 
 function Clip({
@@ -381,16 +385,20 @@ export function EquityCountryFlag({
   size = "sm",
 }: {
   countryId: string;
-  size?: "xs" | "sm" | "md";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
 }) {
   const Flag = FLAGS[countryId];
   if (!Flag) return null;
   const wrap =
-    size === "md"
-      ? "inline-flex shrink-0 [&>svg]:h-[22px] [&>svg]:w-[22px]"
-      : size === "xs"
-        ? "inline-flex shrink-0 [&>svg]:h-[12px] [&>svg]:w-[12px]"
-        : "inline-flex shrink-0";
+    size === "xl"
+      ? "inline-flex shrink-0 [&>svg]:h-[44px] [&>svg]:w-[44px]"
+      : size === "lg"
+        ? "inline-flex shrink-0 [&>svg]:h-[33px] [&>svg]:w-[33px]"
+        : size === "md"
+          ? "inline-flex shrink-0 [&>svg]:h-[22px] [&>svg]:w-[22px]"
+          : size === "xs"
+            ? "inline-flex shrink-0 [&>svg]:h-[12px] [&>svg]:w-[12px]"
+            : "inline-flex shrink-0";
   return (
     <span className={wrap}>
       <Flag />

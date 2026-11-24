@@ -1,16 +1,18 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 
+import { MarketHoursStatus } from "./MarketHoursStatus";
 import { MarketJournalButton } from "./journal/MarketJournal";
 
 const TABS = [
   { to: "/", label: "Dashboard" },
-  { to: "/watchlist", label: "Market Monitor" },
   { to: "/yield-curves", label: "Yield Curves" },
   { to: "/equities", label: "Equities" },
   { to: "/foreign-exchange", label: "Foreign Exchange" },
+  { to: "/commodities", label: "Commodities" },
   { to: "/derivatives", label: "Volatility" },
   { to: "/morning-brief", label: "Morning Brief" },
   { to: "/emerging-markets", label: "Emerging Markets" },
+  { to: "/watchlist", label: "Market Monitor" },
 ] as const;
 
 export function AppHeader() {
@@ -18,7 +20,7 @@ export function AppHeader() {
   return (
     <header className="border-b border-border bg-card/95 backdrop-blur">
       <div className="mx-auto max-w-[1600px] px-5">
-        <div className="flex h-12 items-center justify-between">
+        <div className="flex h-10 items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <div className="grid h-6 w-6 place-items-center rounded-sm bg-primary text-[10px] font-bold tracking-tight text-primary-foreground">
               MP
@@ -34,14 +36,10 @@ export function AppHeader() {
           </Link>
           <div className="flex items-center gap-3">
             <MarketJournalButton />
-            <div className="hidden items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground sm:flex">
-              <span>EU · NORDICS · US</span>
-              <span className="mx-2 h-1 w-1 rounded-full bg-pos" />
-              <span className="text-foreground">Markets Open</span>
-            </div>
+            <MarketHoursStatus />
           </div>
         </div>
-        <nav className="-mb-px flex items-center gap-1 overflow-x-auto">
+        <nav className="-mb-px flex items-center gap-1 overflow-x-auto overflow-y-hidden">
           {TABS.map((t) => {
             const active = pathname === t.to;
             return (

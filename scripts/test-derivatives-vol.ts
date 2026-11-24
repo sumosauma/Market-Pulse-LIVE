@@ -24,6 +24,7 @@ import { iv20FromListedOptions, type ListedOptionQuote } from "../src/lib/deriva
 import { parseOccOptionSymbol } from "../src/lib/derivatives/occ.ts";
 import {
   annualizeDailyVol,
+  computeAbsChangeVol20,
   computeRv20,
   computeVrp,
   logReturns,
@@ -105,6 +106,22 @@ function pricesFromReturns(start: number, returns: readonly number[]): number[] 
 {
   const tooShort = Array.from({ length: 20 }, (_, i) => ({ date: `2026-01-${String(i + 1).padStart(2, "0")}`, close: 100 + i }));
   assert(computeRv20(tooShort) === null, "RV20 needs 21 closes");
+}
+
+// --- Absolute price-change vol (Nordic-style) ---
+{
+  const changes = Array.from({ length: 20 }, (_, i) => (i % 2 === 0 ? 5 : -5));
+  const closes = [100];
+  for (const d of changes) closes.push(closes[closes.length - 1]! + d);
+  const points = closes.map((close, i) => ({ date: `2026-03-${String(i + 1).padStart(2, "0")}`, close }));
+  const abs = computeAbsChangeVol20(points);
+  assert(abs != null, "abs change vol");
+  const expected = 5 * Math.sqrt(20 / 19);
+  assertClose(abs!.vol, expected, 1e-12, "abs ΔP sample stdev (n − 1), not annualized");
+  assert(abs!.asOf === "2026-03-21", `abs asOf ${abs!.asOf}`);
+  assert(computeAbsChangeVol20(points.slice(0, 20)) === null, "abs vol needs 21 prices");
+  const withNeg = points.map((p, i) => (i === 10 ? { ...p, close: -3 } : p));
+  assert(computeAbsChangeVol20(withNeg) != null, "abs vol allows non-positive prices");
 }
 
 // --- Rolling RV20 + 1Y percentile ---

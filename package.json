@@ -19,7 +19,8 @@
     "test:derivatives-vol": "npx tsx scripts/test-derivatives-vol.ts",
     "test:vol-indices": "npx tsx scripts/test-vol-indices.ts",
     "test:vol-term-structure": "npx tsx scripts/test-vol-term-structure.ts",
-    "test:sweden-yield-tenors": "npx tsx scripts/test-sweden-yield-tenors.ts"
+    "test:sweden-yield-tenors": "npx tsx scripts/test-sweden-yield-tenors.ts",
+    "test:futures-history": "npx tsx scripts/test-futures-history.mts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.47",
@@ -52,10 +53,10 @@
     "@radix-ui/react-toggle-group": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/vite": "^4.2.1",
-    "@tanstack/react-query": "^5.83.0",
-    "@tanstack/react-router": "^1.168.25",
-    "@tanstack/react-start": "^1.167.50",
-    "@tanstack/router-plugin": "^1.167.28",
+    "@tanstack/react-query": "5.100.10",
+    "@tanstack/react-router": "1.169.2",
+    "@tanstack/react-start": "1.167.65",
+    "@tanstack/router-plugin": "1.167.35",
     "adm-zip": "^0.5.17",
     "ai": "^6.0.177",
     "class-variance-authority": "^0.7.1",
@@ -104,9 +105,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "playwright": "^1.65.1",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^7.3.1"
+    "vite": "7.3.3"
   }
 }

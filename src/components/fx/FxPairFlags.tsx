@@ -5,6 +5,8 @@ const OVERLAP = {
   xs: "-ml-1",
   sm: "-ml-1.5",
   md: "-ml-2",
+  lg: "-ml-2.5",
+  xl: "-ml-4",
 } as const;
 
 export function FxCurrencyFlag({
@@ -12,7 +14,7 @@ export function FxCurrencyFlag({
   size = "xs",
 }: {
   currency: string;
-  size?: "xs" | "sm" | "md";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
 }) {
   const countryId = FX_CURRENCY_FLAG[currency];
   if (!countryId) return null;
@@ -24,7 +26,7 @@ export function FxPairFlags({
   size = "sm",
 }: {
   pair: FxPairDef;
-  size?: "xs" | "sm" | "md";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
 }) {
   const base = FX_CURRENCY_FLAG[pair.from];
   const quote = FX_CURRENCY_FLAG[pair.to];

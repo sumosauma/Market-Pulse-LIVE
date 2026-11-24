@@ -4,4 +4,13 @@
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
+  // Persist CME settlement strips for 1W/1M historical curves when the Worker FS is read-only.
+  // Create a real namespace with `npx wrangler kv namespace create FUTURES_SNAPSHOTS` and replace the ids.
+  "kv_namespaces": [
+    {
+      "binding": "FUTURES_SNAPSHOTS",
+      "id": "00000000000000000000000000000000",
+      "preview_id": "00000000000000000000000000000000"
+    }
+  ]
 }

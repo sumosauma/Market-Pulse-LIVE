@@ -153,6 +153,13 @@
   }
   .text-pos { color: var(--pos); }
   .text-neg { color: var(--neg); }
+  /* Lighter but brighter ink for Market Overview return columns */
+  .text-pos-lite { color: oklch(0.58 0.14 150); }
+  .text-neg-lite { color: oklch(0.60 0.16 25); }
+  .dark .text-pos-lite { color: oklch(0.74 0.15 150); }
+  .dark .text-neg-lite { color: oklch(0.74 0.15 25); }
+  .bg-pos { background-color: var(--pos); }
+  .bg-neg { background-color: var(--neg); }
   .bg-pos-soft { background-color: var(--pos-soft); }
   .bg-neg-soft { background-color: var(--neg-soft); }
 }
@@ -172,6 +179,28 @@
   transform-origin: center;
   animation: yc-spin 0.75s linear infinite;
   will-change: transform;
+}
+
+/* Soft green pulse for live open-market venue dots */
+@keyframes market-open-shine {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow:
+      0 0 4px 1px color-mix(in oklab, oklch(0.72 0.16 145) 70%, transparent),
+      0 0 8px 2px color-mix(in oklab, oklch(0.72 0.16 145) 35%, transparent);
+  }
+  50% {
+    opacity: 0.9;
+    box-shadow:
+      0 0 6px 2px color-mix(in oklab, oklch(0.78 0.18 145) 85%, transparent),
+      0 0 12px 4px color-mix(in oklab, oklch(0.78 0.18 145) 45%, transparent);
+  }
+}
+
+.market-open-dot {
+  background-color: oklch(0.72 0.16 145);
+  animation: market-open-shine 1.6s ease-in-out infinite;
 }
 
 /* TV-style rolling news ticker (explicit light-on-dark; not theme foreground) */

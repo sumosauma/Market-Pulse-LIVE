@@ -16,6 +16,7 @@ import { Route as ForeignExchangeRouteImport } from './routes/foreign-exchange'
 import { Route as EquitiesRouteImport } from './routes/equities'
 import { Route as EmergingMarketsRouteImport } from './routes/emerging-markets'
 import { Route as DerivativesRouteImport } from './routes/derivatives'
+import { Route as CommoditiesRouteImport } from './routes/commodities'
 import { Route as IndexRouteImport } from './routes/index'
 
 const YieldCurvesRoute = YieldCurvesRouteImport.update({
@@ -53,6 +54,11 @@ const DerivativesRoute = DerivativesRouteImport.update({
   path: '/derivatives',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommoditiesRoute = CommoditiesRouteImport.update({
+  id: '/commodities',
+  path: '/commodities',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -61,6 +67,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/commodities': typeof CommoditiesRoute
   '/derivatives': typeof DerivativesRoute
   '/emerging-markets': typeof EmergingMarketsRoute
   '/equities': typeof EquitiesRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/commodities': typeof CommoditiesRoute
   '/derivatives': typeof DerivativesRoute
   '/emerging-markets': typeof EmergingMarketsRoute
   '/equities': typeof EquitiesRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/commodities': typeof CommoditiesRoute
   '/derivatives': typeof DerivativesRoute
   '/emerging-markets': typeof EmergingMarketsRoute
   '/equities': typeof EquitiesRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/commodities'
     | '/derivatives'
     | '/emerging-markets'
     | '/equities'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/commodities'
     | '/derivatives'
     | '/emerging-markets'
     | '/equities'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/commodities'
     | '/derivatives'
     | '/emerging-markets'
     | '/equities'
@@ -125,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CommoditiesRoute: typeof CommoditiesRoute
   DerivativesRoute: typeof DerivativesRoute
   EmergingMarketsRoute: typeof EmergingMarketsRoute
   EquitiesRoute: typeof EquitiesRoute
@@ -185,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DerivativesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/commodities': {
+      id: '/commodities'
+      path: '/commodities'
+      fullPath: '/commodities'
+      preLoaderRoute: typeof CommoditiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -197,6 +217,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CommoditiesRoute: CommoditiesRoute,
   DerivativesRoute: DerivativesRoute,
   EmergingMarketsRoute: EmergingMarketsRoute,
   EquitiesRoute: EquitiesRoute,

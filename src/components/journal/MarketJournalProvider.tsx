@@ -237,7 +237,7 @@ export function MarketJournalButton() {
     <button
       type="button"
       onClick={toggleLibrary}
-      className="inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-background/80 px-2.5 py-1.5 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-accent/60"
+      className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border/80 bg-background/80 px-2 py-0 text-[11px] font-medium leading-none text-foreground shadow-sm transition-colors hover:bg-accent/60"
       aria-label="Open Market Journal"
       aria-pressed={libraryOpen || libraryMinimized}
     >

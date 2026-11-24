@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import faviconUrl from "../assets/favicon.svg?url";
 
 import { MarketJournalProvider } from "@/components/journal/MarketJournal";
 
@@ -91,6 +92,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: appCss,
+      },
+      {
+        rel: "icon",
+        href: faviconUrl,
+        type: "image/svg+xml",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: faviconUrl,
       },
     ],
   }),
