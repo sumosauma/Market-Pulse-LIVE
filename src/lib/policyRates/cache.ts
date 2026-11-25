@@ -50,13 +50,24 @@ export function isFreshCache(row: PolicyRateRow, savedAtIso: string, now = new D
   return true;
 }
 
+function isVerifiedFreshRow(row: PolicyRateRow): boolean {
+  // Unverified / needsVerification prints must not block a live re-fetch for 24h —
+  // that sticky miss is what blanked FX Policy Differentials after a FRED outage.
+  if (row.freshness === "unverified" || row.needsVerification) return false;
+  return row.freshness === "live" || row.freshness === "cached";
+}
+
 export function readFreshCache(id: PolicyBankId, now = new Date()): PolicyRateRow | null {
   const mem = memory.get(id);
-  if (mem && isFreshCache(mem.row, new Date(mem.at).toISOString(), now)) {
+  if (
+    mem &&
+    isVerifiedFreshRow(mem.row) &&
+    isFreshCache(mem.row, new Date(mem.at).toISOString(), now)
+  ) {
     return { ...mem.row, freshness: mem.row.freshness === "live" ? "cached" : mem.row.freshness };
   }
   const disk = readDisk().entries[id];
-  if (disk && isFreshCache(disk.row, disk.savedAt, now)) {
+  if (disk && isVerifiedFreshRow(disk.row) && isFreshCache(disk.row, disk.savedAt, now)) {
     memory.set(id, { at: new Date(disk.savedAt).getTime(), row: disk.row });
     return { ...disk.row, freshness: disk.row.freshness === "live" ? "cached" : disk.row.freshness };
   }

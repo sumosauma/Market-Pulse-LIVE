@@ -37,29 +37,35 @@ function yoyForMonth(byMonth: Map<string, number>, ym: string): number | null {
 export function computeIndexYoYMoM(observations: FredObs[]): FredRowSnapshot {
   const byMonth = new Map(observations.map((o) => [monthKey(o.date), o.value]));
   const sorted = [...byMonth.keys()].sort();
-  const latestMonth = sorted.at(-1);
-  if (!latestMonth) throw new Error("No monthly observations");
+  if (!sorted.length) throw new Error("No monthly observations");
 
-  const prevMonth = addMonths(latestMonth, -1);
-  const latestYoy = yoyForMonth(byMonth, latestMonth);
-  const priorYoy = yoyForMonth(byMonth, prevMonth);
-  if (latestYoy === null) throw new Error("Insufficient history for YoY");
+  // Prefer the newest month that has a real YoY pair. FRED occasionally leaves a
+  // `"."` hole at month−12 (e.g. CPILFESL 2025-10), which must not blank the card
+  // when an earlier complete print exists — still a real observation, not a fill.
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const latestMonth = sorted[i]!;
+    const latestYoy = yoyForMonth(byMonth, latestMonth);
+    if (latestYoy === null) continue;
 
-  const mom =
-    byMonth.has(prevMonth) ? ((byMonth.get(latestMonth)! / byMonth.get(prevMonth)! - 1) * 100) : null;
+    const prevMonth = addMonths(latestMonth, -1);
+    const priorYoy = yoyForMonth(byMonth, prevMonth);
+    const mom =
+      byMonth.has(prevMonth) ? ((byMonth.get(latestMonth)! / byMonth.get(prevMonth)! - 1) * 100) : null;
+    const yoyDelta = priorYoy !== null ? latestYoy - priorYoy : null;
+    const change = yoyDelta !== null ? formatPpDelta(yoyDelta) : null;
 
-  const yoyDelta = priorYoy !== null ? latestYoy - priorYoy : null;
-  const change = yoyDelta !== null ? formatPpDelta(yoyDelta) : null;
+    return {
+      headlineValue: formatYoYHeadline(latestYoy),
+      headlineYoY: latestYoy,
+      changeVsPriorDisplay: change?.value ?? null,
+      changeSecondaryValue: change ? CHANGE_LABEL_FROM_PREVIOUS : null,
+      changeVsPriorDirection: change?.direction ?? null,
+      secondaryValue: mom !== null ? formatMoMSecondary(mom) : null,
+      observationDate: `${latestMonth}-01`,
+    };
+  }
 
-  return {
-    headlineValue: formatYoYHeadline(latestYoy),
-    headlineYoY: latestYoy,
-    changeVsPriorDisplay: change?.value ?? null,
-    changeSecondaryValue: change ? CHANGE_LABEL_FROM_PREVIOUS : null,
-    changeVsPriorDirection: change?.direction ?? null,
-    secondaryValue: mom !== null ? formatMoMSecondary(mom) : null,
-    observationDate: `${latestMonth}-01`,
-  };
+  throw new Error("Insufficient history for YoY");
 }
 
 export function computePayemsChange(observations: FredObs[]): FredRowSnapshot {

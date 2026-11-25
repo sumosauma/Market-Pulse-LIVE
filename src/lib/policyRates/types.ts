@@ -50,6 +50,8 @@ export type PolicyRateRow = {
 export type PolicyRatesPayload = Readonly<{
   rows: PolicyRateRow[];
   fetchedAt: string;
+  /** True when serving an expired SWR snapshot while a background refresh runs. */
+  fromStaleCache?: boolean;
 }>;
 
 export const POLICY_RATES_CACHE_MS = 24 * 60 * 60 * 1000;

@@ -1,4 +1,4 @@
-import type { Quote } from "@/lib/markets.functions";
+import type { Quote } from "@/lib/markets/types";
 
 /** React Query key — bump when Quote schema changes. */
 export const MARKETS_QUERY_KEY = ["markets", "v4"] as const;

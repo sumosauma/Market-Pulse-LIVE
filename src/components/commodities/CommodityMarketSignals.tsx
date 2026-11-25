@@ -99,7 +99,7 @@ function SignificanceMeter({
         {scale.percentile != null ? (
           <span
             className={[
-              "shrink-0 tabular-nums text-[15px] font-bold tracking-tight",
+              "shrink-0 tabular-nums text-[13.5px] font-bold tracking-tight",
               accentExtreme
                 ? "text-amber-900 dark:text-amber-200"
                 : "text-foreground",
@@ -142,11 +142,16 @@ function PeriodChip({
 function PrimaryValue({ children, tone }: { children: ReactNode; tone: string }) {
   return (
     <span
-      className={["text-[24px] font-bold tabular-nums leading-none tracking-tight", tone].join(" ")}
+      className={["text-[21.6px] font-bold tabular-nums leading-none tracking-tight", tone].join(" ")}
     >
       {children}
     </span>
   );
+}
+
+/** ~10% smaller main desk icons (Risk Monitor only). */
+function DeskMark({ children }: { children: ReactNode }) {
+  return <span className="inline-flex origin-center scale-90">{children}</span>;
 }
 
 /**
@@ -199,7 +204,7 @@ function DeskRow({
             centered ? "" : "pt-0.5",
           ].join(" ")}
         >
-          <span className="max-w-full truncate text-center text-[12px] font-bold leading-none tracking-tight text-foreground">
+          <span className="max-w-full truncate text-center text-[10.8px] font-medium leading-none tracking-normal text-foreground">
             {title}
           </span>
           {mark}
@@ -228,7 +233,11 @@ function PriceOrVolObservation({
       onActivate={() => onSelect(signal)}
       ariaLabel={`${display.headline}: ${signal.commodityName} ${signal.primaryReading}. Open analysis.`}
       title={signal.commodityName}
-      mark={<InstrumentMark id={signal.commodityId} size="xl" />}
+      mark={
+        <DeskMark>
+          <InstrumentMark id={signal.commodityId} size="xl" />
+        </DeskMark>
+      }
     >
       <div className="flex h-6 items-baseline gap-x-2">
         <PrimaryValue tone={primaryTone}>{signal.primaryReading}</PrimaryValue>
@@ -265,7 +274,13 @@ function CurrencyObservation({
       onActivate={() => onSelect(signal)}
       ariaLabel={`${viz.pair} ${signal.primaryReading}. ${costLabel}. Open analysis.`}
       title={viz.pair}
-      mark={pairDef ? <FxPairFlags pair={pairDef} size="lg" /> : null}
+      mark={
+        pairDef ? (
+          <DeskMark>
+            <FxPairFlags pair={pairDef} size="lg" />
+          </DeskMark>
+        ) : null
+      }
       align="center"
     >
       <div className="flex items-center gap-x-2">
@@ -324,7 +339,11 @@ function ForwardObservation({
       onActivate={() => onSelect(signal)}
       ariaLabel={`${signal.commodityName} 6M ${signal.primaryReading}. Open curve analysis.`}
       title={signal.commodityName}
-      mark={<InstrumentMark id={signal.commodityId} size="xl" />}
+      mark={
+        <DeskMark>
+          <InstrumentMark id={signal.commodityId} size="xl" />
+        </DeskMark>
+      }
     >
       <div className="flex h-6 items-baseline gap-x-2">
         <PeriodChip className="text-[12px] tracking-[0.08em]">6M</PeriodChip>
@@ -336,7 +355,7 @@ function ForwardObservation({
           Front-month
         </span>
         <span
-          className={["text-[15px] font-bold tracking-tight", toneClass(viz.frontMonthRet)].join(
+          className={["text-[13.5px] font-bold tracking-tight", toneClass(viz.frontMonthRet)].join(
             " ",
           )}
         >
@@ -362,7 +381,7 @@ function CategoryColumn({
   return (
     <div className="flex min-w-0 flex-col">
       <div className="flex h-8 shrink-0 items-center justify-center gap-1 border-b border-border bg-muted/20 px-1.5">
-        <h3 className="whitespace-nowrap text-center text-[12px] font-[650] tracking-wide text-foreground">
+        <h3 className="whitespace-nowrap text-center text-[10.8px] font-medium tracking-normal text-foreground">
           {heading}
         </h3>
         {category === "largest-price-move" ? (

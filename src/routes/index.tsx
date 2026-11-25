@@ -18,6 +18,7 @@ import { getPolicyRates, POLICY_RATES_QUERY_KEY } from "@/lib/policyRates/policy
 import { Sparkline } from "@/components/Sparkline";
 import { OverviewInstrumentGlyph } from "@/components/OverviewInstrumentGlyph";
 import { YieldCurveFetchSpinner } from "@/components/yield-curves/YieldCurveFetchSpinner";
+import { useRefetchWhenStale } from "@/lib/useRefetchWhenStale";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -446,8 +447,9 @@ function DashboardPage() {
   const { data, isPending, isFetching, refetch } = useQuery({
     queryKey: MARKETS_QUERY_KEY,
     queryFn: () => fetchMarkets(),
-    refetchInterval: 60_000,
-    staleTime: 0,
+    // Align with server MARKETS_CACHE_MS (60s); keep 1-minute refresh interval.
+    staleTime: 60_000,
+    refetchInterval: (query) => (query.state.data?.fromStaleCache ? 2_000 : 60_000),
   });
   const { data: macroPulse, isLoading: macroLoading, refetch: refetchMacroPulse } = useQuery({
     queryKey: ["macro-pulse", MACRO_PULSE_SCHEMA_VERSION],
@@ -455,12 +457,15 @@ function DashboardPage() {
     staleTime: 6 * 60 * 60 * 1000,
     refetchInterval: 6 * 60 * 60 * 1000,
   });
-  const { data: policyRates, isLoading: policyLoading } = useQuery({
+  const { data: policyRates, isLoading: policyLoading, refetch: refetchPolicyRates } = useQuery({
     queryKey: POLICY_RATES_QUERY_KEY,
     queryFn: () => fetchPolicyRates(),
     staleTime: 60 * 60 * 1000,
-    refetchInterval: 60 * 60 * 1000,
+    refetchInterval: (query) =>
+      query.state.data?.fromStaleCache ? 2_000 : 60 * 60 * 1000,
   });
+  useRefetchWhenStale(data?.fromStaleCache, refetch);
+  useRefetchWhenStale(policyRates?.fromStaleCache, refetchPolicyRates);
   const quotes = data?.quotes ?? [];
   const marketsLoading = !data && isPending;
 

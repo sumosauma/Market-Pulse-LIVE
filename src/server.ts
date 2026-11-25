@@ -1,3 +1,16 @@
+/**
+ * Load repo-root `.env` for Node production (`npm start`). Vite already injects
+ * env in `vite dev`. Never overrides keys already present (DO/platform wins).
+ * Uses Node's built-in loader — no `node:fs` import that could leak into the
+ * client Rollup graph via createServerFn modules.
+ */
+try {
+  // Node 20.12+ / 22+
+  (process as NodeJS.Process & { loadEnvFile?: (path: string) => void }).loadEnvFile?.(".env");
+} catch {
+  // Missing/unreadable .env is fine — platform env may still be set.
+}
+
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";

@@ -7,6 +7,7 @@ import {
   readOfflineCachedTopNews,
   writeCachedTopNews,
 } from "@/lib/topNewsBannerCache";
+import { useRefetchWhenStale } from "@/lib/useRefetchWhenStale";
 
 const CLIENT_CACHE_MS = 8 * 60 * 1000; // keep in sync with server CACHE_MS
 
@@ -75,11 +76,13 @@ export function TopNewsBanner() {
     () => initialCache?.headlines ?? [],
   );
 
-  const { data, isLoading, isError, isFetched } = useQuery({
+  const { data, isLoading, isError, isFetched, refetch } = useQuery({
     queryKey: ["top-news"],
     queryFn: () => fetchTopNews(),
     staleTime: CLIENT_CACHE_MS,
-    refetchInterval: isOnline ? CLIENT_CACHE_MS : false,
+    refetchInterval: isOnline
+      ? (query) => (query.state.data?.fromStaleCache ? 2_000 : CLIENT_CACHE_MS)
+      : false,
     refetchOnReconnect: true,
     retry: isOnline ? 2 : 0,
     placeholderData: keepPreviousData,
@@ -87,6 +90,8 @@ export function TopNewsBanner() {
       ? { headlines: initialCache.headlines, errors: {}, fetchedAt: initialCache.fetchedAt }
       : undefined,
   });
+
+  useRefetchWhenStale(isOnline ? data?.fromStaleCache : false, refetch);
 
   useEffect(() => {
     if (data?.headlines?.length) {

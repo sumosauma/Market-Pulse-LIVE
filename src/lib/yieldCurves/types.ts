@@ -178,6 +178,8 @@ export type GetSwedenYieldHistoryResponse = Readonly<{
   dataSourceTag: SwedenYieldDataSourceTag;
   updatedAtISO: string;
   cacheSavedAtISO: string | null;
+  /** True when serving expired disk history while a background refresh runs. */
+  fromStaleCache?: boolean;
 }>;
 
 export type GetSwedenYieldCurveResponse = Readonly<{

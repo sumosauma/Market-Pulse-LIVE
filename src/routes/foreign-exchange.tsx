@@ -12,6 +12,7 @@ import { useFxDeskMarket } from "@/lib/fx/useFxDesk";
 import type { FxPairId } from "@/lib/fx/pairs";
 import { getPolicyRates, POLICY_RATES_QUERY_KEY } from "@/lib/policyRates/policyRates.functions";
 import type { PolicyBankId, PolicyRateRow } from "@/lib/policyRates/types";
+import { useRefetchWhenStale } from "@/lib/useRefetchWhenStale";
 
 export const Route = createFileRoute("/foreign-exchange")({
   head: () => ({
@@ -30,11 +31,14 @@ function ForeignExchangePage() {
   const [selectedPairId, setSelectedPairId] = useState<FxPairId>("eursek");
   const [chartWindow, setChartWindow] = useState<FxPriceWindow>("3M");
 
+  // Shared policy SWR cache (same key as Dashboard). Never gates the FX board.
   const policyQuery = useQuery({
     queryKey: POLICY_RATES_QUERY_KEY,
     queryFn: () => fetchPolicyRates(),
     staleTime: 60 * 60 * 1000,
+    refetchInterval: (query) => (query.state.data?.fromStaleCache ? 2_000 : false),
   });
+  useRefetchWhenStale(policyQuery.data?.fromStaleCache, () => policyQuery.refetch());
 
   const policyByBank = useMemo(() => {
     const map = new Map<PolicyBankId, PolicyRateRow>();
@@ -42,6 +46,7 @@ function ForeignExchangePage() {
     return map;
   }, [policyQuery.data]);
 
+  // FX market desk loads independently of policy — board must paint without waiting.
   const marketLoading = market.isPending && !market.data;
   const marketFailed = market.isError && !market.data;
 

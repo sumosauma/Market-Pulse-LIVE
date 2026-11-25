@@ -2,14 +2,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fetchTimeseries, pointsFromTimeseries } from "@/lib/fx/frankfurter";
 import { contractLabel, MONTH_CODES } from "./futuresCurve";
-import {
-  futuresCurveSpecById,
-  loadFuturesTermStructure,
-  type FuturesCurveSpec,
-} from "./futuresCurve.server";
+import { getCachedFuturesTermStructure } from "./futuresCurve.cache";
+import { futuresCurveSpecById, type FuturesCurveSpec } from "./futuresCurve.server";
 import type { CurveSessionSnapshot, SnapshotRow } from "./futuresCurveSnapshots";
 import { HISTORY_STALE_DAYS, type HistoryIndicator } from "./indicators";
-import { loadCommodityIndicators } from "./indicators.server";
+import { getCachedCommodityIndicators } from "./indicators.cache";
 import { calendarDaysBetween } from "./overview";
 import {
   applyLifecycle,
@@ -30,7 +27,6 @@ import {
 
 const STATE_PATH = "data/cache/commodities-signals-state.json";
 const SNAPSHOTS_PATH = "data/cache/futures-curve-snapshots.json";
-const CURVE_CACHE_PATH = "data/cache/commodities-futures-curve.json";
 const STATE_VERSION = 2;
 const YAHOO_FETCH_TIMEOUT_MS = 12_000;
 const YAHOO_CONCURRENCY = 4;
@@ -301,51 +297,9 @@ function readSnapshotFile(): SnapshotFile | null {
   }
 }
 
-function readCurveIdentityFromDisk(): CurveIdentity[] | null {
-  try {
-    if (!existsSync(CURVE_CACHE_PATH)) return null;
-    const raw = JSON.parse(readFileSync(CURVE_CACHE_PATH, "utf8")) as {
-      payload?: {
-        curves?: Array<{
-          id: string;
-          name: string;
-          enabled: boolean;
-          sessionDate: string | null;
-          points: CurveIdentityPoint[];
-        }>;
-      };
-    };
-    const curves = raw.payload?.curves;
-    if (!Array.isArray(curves) || curves.length === 0) return null;
-    const out: CurveIdentity[] = [];
-    for (const curve of curves) {
-      const spec = futuresCurveSpecById(curve.id);
-      if (!spec || !FORWARD_CURVE_IDS.includes(curve.id as (typeof FORWARD_CURVE_IDS)[number])) {
-        continue;
-      }
-      out.push({
-        id: curve.id,
-        name: curve.name,
-        sessionDate: curve.sessionDate,
-        enabled: curve.enabled,
-        points: curve.points ?? [],
-        root: spec.root,
-        venue: spec.venue,
-        currency: spec.currency,
-      });
-    }
-    return out.length > 0 ? out : null;
-  } catch {
-    return null;
-  }
-}
-
+/** Curve identities from the shared futures-curve SWR cache (same dataset as the Curves endpoint). */
 async function loadCurveIdentities(): Promise<CurveIdentity[]> {
-  const cached = readCurveIdentityFromDisk();
-  if (cached && cached.some((c) => c.enabled && c.sessionDate && c.points.length >= 2)) {
-    return cached;
-  }
-  const term = await loadFuturesTermStructure();
+  const term = await getCachedFuturesTermStructure();
   return term.curves
     .filter((curve) => FORWARD_CURVE_IDS.includes(curve.id as (typeof FORWARD_CURVE_IDS)[number]))
     .map((curve) => {
@@ -559,7 +513,10 @@ function yahooObservationOnDate(
  * Never mixes CME settlements with Yahoo closes within one commodity.
  * Ranks only on a shared completed asOf across eligible commodities.
  */
-async function evaluateForwardRepricing(indicators: HistoryIndicator[]): Promise<{
+async function evaluateForwardRepricing(
+  indicators: HistoryIndicator[],
+  identities: CurveIdentity[],
+): Promise<{
   active: boolean;
   reason: string | null;
   rows: ForwardRepricingInput[];
@@ -567,13 +524,6 @@ async function evaluateForwardRepricing(indicators: HistoryIndicator[]): Promise
   const nameById = new Map(indicators.map((row) => [row.id, row.name]));
   const completedBefore = exchangeTodayIso();
   const snapshotFile = readSnapshotFile();
-
-  let identities: CurveIdentity[] = [];
-  try {
-    identities = await loadCurveIdentities();
-  } catch {
-    identities = [];
-  }
 
   // --- Pass 1: CME settlement candidates (completed sessions only) ---
   const cmeById = new Map<string, ForwardRepricingInput>();
@@ -782,8 +732,13 @@ async function evaluateForwardRepricing(indicators: HistoryIndicator[]): Promise
 }
 
 export async function loadCommoditySignals(): Promise<CommoditySignalsPayload> {
-  const [indicators, fx] = await Promise.all([loadCommodityIndicators(), loadFxHistory()]);
-  const futuresGate = await evaluateForwardRepricing(indicators.history);
+  // Indicators, FX, and shared curve identities load in parallel (same caches as desk endpoints).
+  const [indicators, fx, identities] = await Promise.all([
+    getCachedCommodityIndicators(),
+    loadFxHistory(),
+    loadCurveIdentities().catch((): CurveIdentity[] => []),
+  ]);
+  const futuresGate = await evaluateForwardRepricing(indicators.history, identities);
 
   const commodities = indicators.history.map(toSignalCommodity);
   const engine = runSignalEngine(

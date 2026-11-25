@@ -9,6 +9,9 @@
  * dates return HTTP 401. Successful days are merged into a durable disk cache
  * so history can accumulate across refreshes without re-fetching authenticated
  * history or substituting bidding-zone proxies (SE3/NO1/etc.).
+ *
+ * Live fetches are process-wide deduped. After the durable cache is populated,
+ * only missing dates and a short recent window (corrections) are re-requested.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -20,6 +23,13 @@ const CONCURRENCY = 3;
 const MAX_RETRIES = 4;
 /** Walk this many CET calendar days back; free API 401s beyond its window. */
 export const NORDIC_LIVE_LOOKBACK_DAYS = 100;
+/**
+ * Re-fetch this many most-recent complete delivery days every refresh so official
+ * corrections land without re-walking the full free window.
+ */
+export const NORDIC_REVALIDATE_RECENT_DAYS = 7;
+/** Process-local share across Overview / Indicators / Signals within one page load. */
+const MEMORY_TTL_MS = 60_000;
 /** Day-ahead auction results for D+1 typically print after ~13:00 Europe/Stockholm. */
 const AUCTION_HOUR_STOCKHOLM = 13;
 
@@ -33,6 +43,13 @@ type CacheFile = {
   updatedAt: string;
   bars: NordicSysBar[];
 };
+
+const memory: { bars: NordicSysBar[] | null; fetchedAt: number } = {
+  bars: null,
+  fetchedAt: 0,
+};
+
+let inflight: Promise<NordicSysBar[]> | null = null;
 
 function stockholmParts(now = new Date()): {
   date: string;
@@ -192,20 +209,35 @@ async function mapLimited<T, R>(items: readonly T[], limit: number, fn: (item: T
   return out;
 }
 
-/**
- * Load Nordic SYS daily averages: merge durable cache with a live free-window walk.
- * Excludes incomplete / not-yet-published delivery days.
- */
-export async function fetchNordicSysDailyHistory(now = new Date()): Promise<NordicSysBar[]> {
-  const cached = readDisk();
+/** Dates in the free lookback window that are missing or in the recent revalidate band. */
+export function selectNordicFetchDates(
+  cached: readonly NordicSysBar[],
+  now = new Date(),
+): { latestComplete: string; dates: string[] } {
   const latestComplete = latestCompleteSysDeliveryDate(now);
+  const today = stockholmParts(now).date;
+  const cachedByDate = new Map(cached.map((bar) => [bar.date, bar.close] as const));
+  const revalidateFrom = stockholmDateOffset(latestComplete, -(NORDIC_REVALIDATE_RECENT_DAYS - 1));
+
   const dates: string[] = [];
   for (let offset = -NORDIC_LIVE_LOOKBACK_DAYS; offset <= 2; offset++) {
-    const date = stockholmDateOffset(stockholmParts(now).date, offset);
-    if (date <= latestComplete) dates.push(date);
+    const date = stockholmDateOffset(today, offset);
+    if (date > latestComplete) continue;
+    const have = cachedByDate.has(date);
+    const inRecentBand = date >= revalidateFrom;
+    if (!have || inRecentBand) dates.push(date);
   }
+  return { latestComplete, dates };
+}
 
-  const liveRows = await mapLimited(dates, CONCURRENCY, fetchSysDay);
+async function loadNordicSysDailyHistory(now: Date): Promise<NordicSysBar[]> {
+  const cached = memory.bars ?? readDisk();
+  const { latestComplete, dates } = selectNordicFetchDates(cached, now);
+
+  const liveRows =
+    dates.length === 0
+      ? []
+      : await mapLimited(dates, CONCURRENCY, fetchSysDay);
   const live = liveRows.filter((row): row is NordicSysBar => row != null);
   const merged = mergeBars(cached, live).filter((bar) => bar.date <= latestComplete);
 
@@ -217,5 +249,24 @@ export async function fetchNordicSysDailyHistory(now = new Date()): Promise<Nord
     if (!same) writeDisk(merged);
   }
 
+  memory.bars = merged;
+  memory.fetchedAt = Date.now();
   return merged;
+}
+
+/**
+ * Load Nordic SYS daily averages: merge durable cache with an incremental live fetch
+ * (missing dates + recent revalidation). Process-wide inflight + short memory share
+ * the same dataset across Overview, Indicators, and Signals.
+ */
+export async function fetchNordicSysDailyHistory(now = new Date()): Promise<NordicSysBar[]> {
+  if (memory.bars && Date.now() - memory.fetchedAt < MEMORY_TTL_MS) {
+    return memory.bars;
+  }
+  if (inflight) return inflight;
+
+  inflight = loadNordicSysDailyHistory(now).finally(() => {
+    inflight = null;
+  });
+  return inflight;
 }

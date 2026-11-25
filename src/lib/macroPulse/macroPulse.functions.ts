@@ -42,7 +42,9 @@ import {
 
 const MEMORY_CACHE_MS = 6 * 60 * 60 * 1000;
 const DISK_CACHE_PATH = "data/cache/macro-pulse.json";
-const FRED_OBS_LIMIT = 16;
+/** Need ≥13 released months for YoY (latest + same month −12). 16 was too tight once
+ *  incomplete/`"."` rows and the current-month filter drop a few observations. */
+const FRED_OBS_LIMIT = 36;
 
 type RowSnapshot = Readonly<{
   headlineValue: string;

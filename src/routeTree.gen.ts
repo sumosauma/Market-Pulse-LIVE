@@ -9,49 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as YieldCurvesRouteImport } from './routes/yield-curves'
-import { Route as WatchlistRouteImport } from './routes/watchlist'
-import { Route as MorningBriefRouteImport } from './routes/morning-brief'
-import { Route as ForeignExchangeRouteImport } from './routes/foreign-exchange'
-import { Route as EquitiesRouteImport } from './routes/equities'
-import { Route as EmergingMarketsRouteImport } from './routes/emerging-markets'
-import { Route as DerivativesRouteImport } from './routes/derivatives'
-import { Route as CommoditiesRouteImport } from './routes/commodities'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CommoditiesRouteImport } from './routes/commodities'
+import { Route as DerivativesRouteImport } from './routes/derivatives'
+import { Route as EmergingMarketsRouteImport } from './routes/emerging-markets'
+import { Route as EquitiesRouteImport } from './routes/equities'
+import { Route as ForeignExchangeRouteImport } from './routes/foreign-exchange'
+import { Route as MorningBriefRouteImport } from './routes/morning-brief'
+import { Route as WatchlistRouteImport } from './routes/watchlist'
+import { Route as YieldCurvesRouteImport } from './routes/yield-curves'
 
-const YieldCurvesRoute = YieldCurvesRouteImport.update({
-  id: '/yield-curves',
-  path: '/yield-curves',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WatchlistRoute = WatchlistRouteImport.update({
-  id: '/watchlist',
-  path: '/watchlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MorningBriefRoute = MorningBriefRouteImport.update({
-  id: '/morning-brief',
-  path: '/morning-brief',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForeignExchangeRoute = ForeignExchangeRouteImport.update({
-  id: '/foreign-exchange',
-  path: '/foreign-exchange',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EquitiesRoute = EquitiesRouteImport.update({
-  id: '/equities',
-  path: '/equities',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmergingMarketsRoute = EmergingMarketsRouteImport.update({
-  id: '/emerging-markets',
-  path: '/emerging-markets',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DerivativesRoute = DerivativesRouteImport.update({
-  id: '/derivatives',
-  path: '/derivatives',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommoditiesRoute = CommoditiesRouteImport.update({
@@ -59,9 +29,39 @@ const CommoditiesRoute = CommoditiesRouteImport.update({
   path: '/commodities',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DerivativesRoute = DerivativesRouteImport.update({
+  id: '/derivatives',
+  path: '/derivatives',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmergingMarketsRoute = EmergingMarketsRouteImport.update({
+  id: '/emerging-markets',
+  path: '/emerging-markets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EquitiesRoute = EquitiesRouteImport.update({
+  id: '/equities',
+  path: '/equities',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForeignExchangeRoute = ForeignExchangeRouteImport.update({
+  id: '/foreign-exchange',
+  path: '/foreign-exchange',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MorningBriefRoute = MorningBriefRouteImport.update({
+  id: '/morning-brief',
+  path: '/morning-brief',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WatchlistRoute = WatchlistRouteImport.update({
+  id: '/watchlist',
+  path: '/watchlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const YieldCurvesRoute = YieldCurvesRouteImport.update({
+  id: '/yield-curves',
+  path: '/yield-curves',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -149,53 +149,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/yield-curves': {
-      id: '/yield-curves'
-      path: '/yield-curves'
-      fullPath: '/yield-curves'
-      preLoaderRoute: typeof YieldCurvesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/watchlist': {
-      id: '/watchlist'
-      path: '/watchlist'
-      fullPath: '/watchlist'
-      preLoaderRoute: typeof WatchlistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/morning-brief': {
-      id: '/morning-brief'
-      path: '/morning-brief'
-      fullPath: '/morning-brief'
-      preLoaderRoute: typeof MorningBriefRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/foreign-exchange': {
-      id: '/foreign-exchange'
-      path: '/foreign-exchange'
-      fullPath: '/foreign-exchange'
-      preLoaderRoute: typeof ForeignExchangeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/equities': {
-      id: '/equities'
-      path: '/equities'
-      fullPath: '/equities'
-      preLoaderRoute: typeof EquitiesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/emerging-markets': {
-      id: '/emerging-markets'
-      path: '/emerging-markets'
-      fullPath: '/emerging-markets'
-      preLoaderRoute: typeof EmergingMarketsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/derivatives': {
-      id: '/derivatives'
-      path: '/derivatives'
-      fullPath: '/derivatives'
-      preLoaderRoute: typeof DerivativesRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/commodities': {
@@ -205,11 +163,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommoditiesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/derivatives': {
+      id: '/derivatives'
+      path: '/derivatives'
+      fullPath: '/derivatives'
+      preLoaderRoute: typeof DerivativesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/emerging-markets': {
+      id: '/emerging-markets'
+      path: '/emerging-markets'
+      fullPath: '/emerging-markets'
+      preLoaderRoute: typeof EmergingMarketsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/equities': {
+      id: '/equities'
+      path: '/equities'
+      fullPath: '/equities'
+      preLoaderRoute: typeof EquitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/foreign-exchange': {
+      id: '/foreign-exchange'
+      path: '/foreign-exchange'
+      fullPath: '/foreign-exchange'
+      preLoaderRoute: typeof ForeignExchangeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/morning-brief': {
+      id: '/morning-brief'
+      path: '/morning-brief'
+      fullPath: '/morning-brief'
+      preLoaderRoute: typeof MorningBriefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/watchlist': {
+      id: '/watchlist'
+      path: '/watchlist'
+      fullPath: '/watchlist'
+      preLoaderRoute: typeof WatchlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/yield-curves': {
+      id: '/yield-curves'
+      path: '/yield-curves'
+      fullPath: '/yield-curves'
+      preLoaderRoute: typeof YieldCurvesRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useRefetchWhenStale } from "@/lib/useRefetchWhenStale";
 import type {
   GetSwedenYieldHistoryResponse,
   ParsedSwedenRiksbankHistory,
@@ -144,12 +145,15 @@ export function useSwedenDiYieldCurve(comparison: YieldComparisonId, enabled = t
     initialDataUpdatedAt: () => loadBrowserHistory()?.savedAt,
     placeholderData: (prev) => prev,
     refetchOnWindowFocus: false,
+    refetchInterval: (query) => (query.state.data?.fromStaleCache ? 2_000 : false),
     refetchOnMount: (query) => {
       const updatedAt = query.state.dataUpdatedAt;
       if (!updatedAt) return true;
       return !isSwedenHistoryCacheFresh(updatedAt);
     },
   });
+
+  useRefetchWhenStale(historyQuery.data?.fromStaleCache, () => historyQuery.refetch());
 
   const data = useMemo(() => {
     if (!historyQuery.data?.history?.series?.length) return null;
