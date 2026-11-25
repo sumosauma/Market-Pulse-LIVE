@@ -32,6 +32,11 @@ export type SwrCacheOptions<T> = {
   shouldPersist?: (payload: T) => boolean;
   /** When a live result is not persisted, still return it on a blocking miss. Default true. */
   returnUnpersistedLive?: boolean;
+  /**
+   * Optional durable remote snapshot (same SwrDiskFile shape as disk).
+   * Used when disk is empty (e.g. DigitalOcean) so the last verified dataset survives.
+   */
+  hydrateRemote?: () => Promise<{ savedAt: number; payload: T } | null>;
 };
 
 export type SwrCacheHandle<T> = {
@@ -93,6 +98,22 @@ export function createSwrCache<T>(options: SwrCacheOptions<T>): SwrCacheHandle<T
     memory.payload = disk.payload;
   }
 
+  async function hydrateFromRemote(): Promise<void> {
+    if (!options.hydrateRemote) return;
+    if (options.usable(memory.payload)) return;
+    try {
+      const remote = await options.hydrateRemote();
+      if (!remote || !options.usable(remote.payload)) return;
+      memory.savedAt = remote.savedAt;
+      memory.payload = remote.payload;
+      if (cacheWorthy(remote.payload)) {
+        writeDiskFile(options.diskPath, options.version, remote.savedAt, remote.payload);
+      }
+    } catch {
+      // Remote is best-effort; live load may still succeed.
+    }
+  }
+
   function asFreshEntry(payload: T): T {
     // A successful live load is a fresh cache entry. Nested upstream SWR flags
     // (e.g. signals built while indicators were expired) must not stick on disk
@@ -144,6 +165,9 @@ export function createSwrCache<T>(options: SwrCacheOptions<T>): SwrCacheHandle<T
 
   async function load(): Promise<T> {
     hydrateFromDisk();
+    if (!options.usable(memory.payload)) {
+      await hydrateFromRemote();
+    }
     const now = Date.now();
 
     if (options.usable(memory.payload)) {

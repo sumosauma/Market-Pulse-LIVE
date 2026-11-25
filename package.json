@@ -20,7 +20,9 @@
     "test:vol-indices": "npx tsx scripts/test-vol-indices.ts",
     "test:vol-term-structure": "npx tsx scripts/test-vol-term-structure.ts",
     "test:sweden-yield-tenors": "npx tsx scripts/test-sweden-yield-tenors.ts",
-    "test:futures-history": "npx tsx scripts/test-futures-history.mts"
+    "test:futures-history": "npx tsx scripts/test-futures-history.mts",
+    "sync:futures-curve": "npx tsx scripts/sync-futures-curve-remote.mts",
+    "test:futures-curve-remote": "npx tsx scripts/test-futures-curve-remote.mts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.47",
