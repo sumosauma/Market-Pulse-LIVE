@@ -9,11 +9,13 @@ import {
   SIGNAL_CATEGORY_LABELS,
   SIGNAL_CATEGORY_ORDER,
   formatPercentileShort,
+  formatSignedPct,
   type CommoditySignal,
   type CommoditySignalsPayload,
   type SignificanceScale,
   type SignalCategory,
 } from "@/lib/commodities/signals";
+import { forwardRepricingInterpretation } from "@/lib/commodities/signals.presentation";
 
 function toneClass(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value) || Math.abs(value) < 1e-12) {
@@ -334,34 +336,59 @@ function ForwardObservation({
   const viz = signal.display.viz.kind === "forward-repricing" ? signal.display.viz : null;
   if (!viz) return null;
 
+  const interpretation =
+    signal.display.interpretation ||
+    forwardRepricingInterpretation(viz.sixMonthRet, viz.frontMonthRet);
+  const sixLabel = formatSignedPct(viz.sixMonthRet);
+  const frontLabel = formatSignedPct(viz.frontMonthRet);
+
   return (
     <DeskRow
       onActivate={() => onSelect(signal)}
-      ariaLabel={`${signal.commodityName} 6M ${signal.primaryReading}. Open curve analysis.`}
+      ariaLabel={`${signal.commodityName}: 6M delivery ${sixLabel}, front-month ${frontLabel}. ${interpretation}. Open curve analysis.`}
       title={signal.commodityName}
       mark={
         <DeskMark>
           <InstrumentMark id={signal.commodityId} size="xl" />
         </DeskMark>
       }
+      align="center"
     >
-      <div className="flex h-6 items-baseline gap-x-2">
-        <PeriodChip className="text-[12px] tracking-[0.08em]">6M</PeriodChip>
-        <PrimaryValue tone={toneClass(viz.sixMonthRet)}>{signal.primaryReading}</PrimaryValue>
+      {/* Centered in card; type scale ≈ PrimaryValue × 0.95. */}
+      <div className="flex w-full min-w-0 max-w-[13.5rem] flex-col justify-center">
+        <div className="grid grid-cols-2 gap-x-3">
+          <div className="min-w-0 text-center">
+            <p className="text-[11.875px] font-semibold leading-none tracking-tight text-muted-foreground">
+              6M delivery
+            </p>
+            <p
+              className={[
+                "mt-2 text-[18.525px] font-bold tabular-nums leading-none tracking-tight",
+                toneClass(viz.sixMonthRet),
+              ].join(" ")}
+            >
+              {sixLabel}
+            </p>
+          </div>
+          <div className="min-w-0 text-center">
+            <p className="text-[11.875px] font-semibold leading-none tracking-tight text-muted-foreground">
+              Front-month
+            </p>
+            <p
+              className={[
+                "mt-2 text-[16.15px] font-bold tabular-nums leading-none tracking-tight",
+                toneClass(viz.frontMonthRet),
+              ].join(" ")}
+            >
+              {frontLabel}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 mb-2 h-px w-full bg-border" aria-hidden />
+        <p className="text-center text-[11.875px] font-medium leading-snug tracking-tight text-muted-foreground">
+          {interpretation}
+        </p>
       </div>
-      <div className="mt-2 mb-2 h-px w-[13rem] max-w-full bg-border" aria-hidden />
-      <p className="flex items-baseline gap-x-1.5 tabular-nums leading-none">
-        <span className="text-[12px] font-semibold tracking-tight text-muted-foreground">
-          Front-month
-        </span>
-        <span
-          className={["text-[13.5px] font-bold tracking-tight", toneClass(viz.frontMonthRet)].join(
-            " ",
-          )}
-        >
-          {signal.contextReading.replace(/^Front-month\s+/, "")}
-        </span>
-      </p>
     </DeskRow>
   );
 }
@@ -379,17 +406,17 @@ function CategoryColumn({
   const rows = signals.slice(0, 2);
 
   return (
-    <div className="flex min-w-0 flex-col">
+    <div className="flex h-full min-h-[15.75rem] min-w-0 flex-col">
       <div className="flex h-8 shrink-0 items-center justify-center gap-1 border-b border-border bg-muted/20 px-1.5">
-        <h3 className="whitespace-nowrap text-center text-[10.8px] font-medium tracking-normal text-foreground">
+        <h3 className="whitespace-nowrap text-center text-[11.34px] font-medium tracking-normal text-foreground">
           {heading}
         </h3>
         {category === "largest-price-move" ? (
           <CommodityInfo label="About highest price move percentiles" side="bottom" wide>
-            <p className="leading-snug text-muted-foreground">
-              Ranks commodities by how unusual their daily price movements are compared to their own
-              historical daily movements. The two commodities with the highest percentiles are
-              displayed.
+            <p className="text-[11.5px] font-normal leading-[1.45] text-foreground/85">
+              Displays the two commodities with the most unusual daily price movements relative to
+              their own historical daily movements. A higher percentile indicates a more unusual
+              price move, regardless of whether prices rise or fall.
             </p>
           </CommodityInfo>
         ) : null}
@@ -415,15 +442,16 @@ function CategoryColumn({
   );
 }
 
+/** Equal-width columns; equal row heights via auto-rows-fr so 2×2 half-screen matches 1×4 full-screen. */
 function columnGridClass(count: number): string {
-  if (count <= 1) return "grid grid-cols-1 divide-y divide-border";
+  if (count <= 1) return "grid grid-cols-1 auto-rows-fr divide-y divide-border";
   if (count === 2) {
-    return "grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0";
+    return "grid grid-cols-1 auto-rows-fr divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0";
   }
   if (count === 3) {
-    return "grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x lg:grid-cols-3 lg:divide-y-0";
+    return "grid grid-cols-1 auto-rows-fr divide-y divide-border sm:grid-cols-2 sm:divide-x lg:grid-cols-3 lg:divide-y-0";
   }
-  return "grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x lg:grid-cols-4 lg:divide-y-0";
+  return "grid grid-cols-1 auto-rows-fr divide-y divide-border sm:grid-cols-2 sm:divide-x lg:grid-cols-4 lg:divide-y-0";
 }
 
 export function CommodityMarketSignals({

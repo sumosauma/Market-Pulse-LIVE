@@ -9,7 +9,6 @@ import {
   PeriodMetricCell,
 } from "@/components/markets/PeriodMetricCell";
 import { MarketStatusChip, isQuoteHistoryStale } from "@/components/markets/MarketStatusChip";
-import { QuoteSourceMeta } from "@/components/markets/QuoteSourceMeta";
 import { MacroPulsePanel } from "@/components/MacroPulsePanel";
 import { PolicyRatesPanel } from "@/components/PolicyRatesPanel";
 import { getMacroPulse } from "@/lib/macroPulse/macroPulse.functions";
@@ -387,7 +386,6 @@ function OverviewCard({
             {fmt(q.price, digits)}
             {q.unit && <span className="ml-1 text-[11px] font-normal text-foreground/55">{q.unit}</span>}
           </div>
-          <QuoteSourceMeta q={q} />
           {lowHighCompact}
         </div>
         {sparkRowCompact}
@@ -416,7 +414,6 @@ function OverviewCard({
                   </span>
                   {lowHighWide}
                 </div>
-                <QuoteSourceMeta q={q} />
               </div>
             </div>
 

@@ -373,7 +373,8 @@ export function curveWithinHorizon(curve: FuturesCurve, months: number, now = ne
   const times = points.map((point) => Date.parse(point.quotedAt)).filter((time) => Number.isFinite(time));
   const earlier = points.some((point) => point.earlierQuote);
   const hasGap = points.some((point) => point.gap);
-  const cmeSettlements = curve.sourceLabel === "CME settlements";
+  const officialSettlements =
+    curve.sourceLabel === "CME settlements" || curve.sourceLabel === "CME Daily Bulletin";
   const monthKeys = new Set(points.map((point) => `${point.year}-${point.monthIndex}`));
   const history = (curve.history ?? emptyHistoricalCurves()).map((entry) => {
     if (entry.horizon === "today") {
@@ -386,7 +387,7 @@ export function curveWithinHorizon(curve: FuturesCurve, months: number, now = ne
         spreadM1M6: near?.price != null && sixth?.price != null ? calendarSpread(near.price, sixth.price) : null,
         spreadM1M6Label: near && sixth ? `${near.label} − ${sixth.label}` : null,
         sessionDate: curve.sessionDate,
-        source: entry.source ?? (cmeSettlements ? "cme" : curve.sourceLabel?.startsWith("Yahoo") ? "yahoo" : null),
+        source: entry.source ?? (officialSettlements ? "cme" : curve.sourceLabel?.startsWith("Yahoo") ? "yahoo" : null),
         unavailableReason: priced.length >= 2 ? null : entry.unavailableReason,
       };
     }
@@ -422,16 +423,18 @@ export function curveWithinHorizon(curve: FuturesCurve, months: number, now = ne
     quotedTo: times.length ? new Date(Math.max(...times)).toISOString() : null,
     sessionNote:
       [
-        cmeSettlements && curve.sessionDate
+        curve.sourceLabel === "CME settlements" && curve.sessionDate
           ? `Official CME Group settlement prices for trade date ${curve.sessionDate}.`
-          : curve.sourceLabel?.startsWith("Yahoo")
-            ? "CME settlements were unavailable; this strip uses same-session Yahoo last trades only."
-            : null,
+          : curve.sourceLabel === "CME Daily Bulletin" && curve.sessionDate
+            ? `Official CME Group Daily Bulletin settlement prices for trade date ${curve.sessionDate}.`
+            : curve.sourceLabel?.startsWith("Yahoo")
+              ? "CME settlements were unavailable; this strip uses same-session Yahoo last trades only."
+              : null,
         earlier
           ? "Some months last traded more than two hours before the newest trade. Those prices are earlier trades from the same session, not a simultaneous snapshot."
           : null,
         hasGap
-          ? cmeSettlements
+          ? officialSettlements
             ? "A blank month had no verified mark on this trade date. Later months that did settle stay on the curve, and the line does not cross the blank."
             : "A blank month had no trade on this session. Later months that did trade stay on the curve, and the line does not cross the blank."
           : null,

@@ -30,6 +30,8 @@ import {
   type HistoricalCurve,
   type HistoryCurveHorizon,
 } from "./futuresCurve";
+import { fetchDailyBulletinSettlements } from "./futuresCurveDailyBulletin.server";
+import { isFuturesContractActiveOnSession } from "./futuresCurveExpiry";
 import {
   findCurveSnapshotOnOrBefore,
   saveCurveSnapshot,
@@ -37,14 +39,36 @@ import {
 } from "./futuresCurveSnapshots";
 import { calendarDaysBetween } from "./overview";
 
+/** Official CME settlement strips (CmeWS JSON or Daily Bulletin PDF) — never Yahoo lasts. */
+export const CME_SETTLEMENT_SOURCE_LABELS = ["CME settlements", "CME Daily Bulletin"] as const;
+
+export function isOfficialCmeSettlementSource(sourceLabel: string | null | undefined): boolean {
+  return (
+    sourceLabel === "CME settlements" ||
+    sourceLabel === "CME Daily Bulletin"
+  );
+}
+
 /**
- * Measured 2026-11-21: CME Settlements JSON returns non-empty rows for the latest
- * session and ~4 calendar days back (e.g. Fri 11/20 → Mon 11/16). Older dates return empty:true.
+ * Measured 2026-11-25: CME Settlements JSON still returns strips ~6–7 calendar days
+ * back from the latest session (e.g. Tue 11/24 → Wed 11/18). Older tradeDates return
+ * empty settlements. Keep a small buffer above the measured depth.
  */
-const CME_HISTORY_MAX_CALENDAR_DAYS = 4;
+const CME_HISTORY_MAX_CALENDAR_DAYS = 10;
+/** Weekday/holiday walk around the target approx when resolving 1d/1w/1m overlays. */
 const HOLIDAY_WALK_EXTRA_DAYS = 4;
 
+/** Yahoo / non-CmeWS fetches. */
 const FETCH_TIMEOUT_MS = 12_000;
+/**
+ * CmeWS per-request timeout. Keep short so a blocked host (DigitalOcean) fails
+ * into Daily Bulletin instead of burning sequential 12s lookbacks.
+ */
+const CME_FETCH_TIMEOUT_MS = 2_500;
+/** After a transport/timeout failure, skip all CmeWS calls for this long. */
+const CME_CIRCUIT_COOLDOWN_MS = 5 * 60_000;
+/** Hard budget for the live CmeWS discovery phase across all products. */
+const CME_LIVE_BUDGET_MS = 8_000;
 /** Max calendar-day lookback when seeking the latest CME settlement publication. */
 const CME_TRADE_DATE_LOOKBACK_DAYS = 6;
 /**
@@ -56,6 +80,42 @@ const MAX_CME_SETTLEMENT_AGE_DAYS = 5;
 const CME_STRIP_HORIZON_MONTHS = 13;
 const CME_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+/** Process-wide negative cache when CmeWS is unreachable (shared across commodities + history). */
+let cmeCircuitOpenUntil = 0;
+
+function cmeCircuitOpen(): boolean {
+  return Date.now() < cmeCircuitOpenUntil;
+}
+
+function tripCmeCircuit(): void {
+  cmeCircuitOpenUntil = Date.now() + CME_CIRCUIT_COOLDOWN_MS;
+}
+
+function clearCmeCircuit(): void {
+  cmeCircuitOpenUntil = 0;
+}
+
+function isCmeTransportFailure(err: unknown): boolean {
+  if (!(err instanceof Error)) return true;
+  const name = err.name || "";
+  const message = err.message || "";
+  return (
+    name === "TimeoutError" ||
+    name === "AbortError" ||
+    /timeout|aborted|network|fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|certificate/i.test(
+      `${name} ${message}`,
+    )
+  );
+}
+
+/** Test/audit helpers — not used by the UI path. */
+export const __cmeCircuitTest = {
+  isOpen: () => cmeCircuitOpen(),
+  trip: () => tripCmeCircuit(),
+  clear: () => clearCmeCircuit(),
+  openUntil: () => cmeCircuitOpenUntil,
+};
 
 type Cycle = "monthly" | "grain" | "gold" | "silver";
 
@@ -539,54 +599,83 @@ async function fetchCmeSettlementsForDate(
   productId: number,
   tradeDate: string,
 ): Promise<{ tradeDate: string; rows: SettlementHit[] } | null> {
+  if (cmeCircuitOpen()) return null;
+  /** Local DO simulation: treat CmeWS as unreachable (fail-fast + trip circuit). */
+  if (process.env.FUTURES_CME_BLOCK === "1") {
+    tripCmeCircuit();
+    return null;
+  }
+  /** Simulate a hung CmeWS host: wait one timeout budget, then trip the shared circuit. */
+  if (process.env.FUTURES_CME_BLOCK === "timeout") {
+    await new Promise((r) => setTimeout(r, CME_FETCH_TIMEOUT_MS));
+    tripCmeCircuit();
+    return null;
+  }
   const sessionDate = cmeTradeDateToIso(tradeDate);
   if (!sessionDate) return null;
   const url = `https://www.cmegroup.com/CmeWS/mvc/Settlements/Futures/Settlements/${productId}/FUT?tradeDate=${encodeURIComponent(tradeDate)}`;
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": CME_UA,
-      Accept: "application/json",
-      Referer: "https://www.cmegroup.com/",
-    },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  if (!res.ok) return null;
-  const json = (await res.json()) as {
-    settlements?: Array<{ month?: string; settle?: string; volume?: string; openInterest?: string }>;
-    tradeDate?: string;
-  };
-  const rows: SettlementHit[] = [];
-  for (const row of json.settlements ?? []) {
-    if (!row.month || row.month === "Total" || !row.settle || row.settle === "-") continue;
-    const parsed = parseCmeMonthLabel(row.month);
-    if (!parsed) continue;
-    const price = parseCmeSettle(row.settle);
-    if (!Number.isFinite(price) || !(price > 0)) continue;
-    const volume = parseCmeActivity(row.volume);
-    const openInterest = parseCmeActivity(row.openInterest);
-    if (!keepCmeSettlementRow(volume, openInterest)) continue;
-    rows.push({
-      year: parsed.year,
-      monthIndex: parsed.monthIndex,
-      price,
-      volume: volume ?? 0,
-      openInterest: openInterest ?? 0,
-      sessionDate,
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": CME_UA,
+        Accept: "application/json",
+        Referer: "https://www.cmegroup.com/",
+      },
+      signal: AbortSignal.timeout(CME_FETCH_TIMEOUT_MS),
     });
+    if (!res.ok) {
+      // Hard block / gateway errors: fail the whole CmeWS path quickly.
+      if (res.status === 403 || res.status === 429 || res.status >= 500) {
+        tripCmeCircuit();
+      }
+      return null;
+    }
+    const json = (await res.json()) as {
+      settlements?: Array<{ month?: string; settle?: string; volume?: string; openInterest?: string }>;
+      tradeDate?: string;
+    };
+    clearCmeCircuit();
+    const rows: SettlementHit[] = [];
+    for (const row of json.settlements ?? []) {
+      if (!row.month || row.month === "Total" || !row.settle || row.settle === "-") continue;
+      const parsed = parseCmeMonthLabel(row.month);
+      if (!parsed) continue;
+      const price = parseCmeSettle(row.settle);
+      if (!Number.isFinite(price) || !(price > 0)) continue;
+      const volume = parseCmeActivity(row.volume);
+      const openInterest = parseCmeActivity(row.openInterest);
+      if (!keepCmeSettlementRow(volume, openInterest)) continue;
+      rows.push({
+        year: parsed.year,
+        monthIndex: parsed.monthIndex,
+        price,
+        volume: volume ?? 0,
+        openInterest: openInterest ?? 0,
+        sessionDate,
+      });
+    }
+    if (rows.length === 0) return null;
+    return { tradeDate: json.tradeDate ?? tradeDate, rows };
+  } catch (err) {
+    if (isCmeTransportFailure(err)) tripCmeCircuit();
+    throw err;
   }
-  if (rows.length === 0) return null;
-  return { tradeDate: json.tradeDate ?? tradeDate, rows };
 }
 
 async function fetchCmeSettlements(
   productId: number,
   now: Date,
+  budgetDeadlineMs?: number,
 ): Promise<{ tradeDate: string; sessionDate: string; rows: SettlementHit[] } | null> {
+  if (cmeCircuitOpen()) return null;
+  if (budgetDeadlineMs != null && Date.now() >= budgetDeadlineMs) return null;
   const todayIso = (() => {
     const today = exchangeCalendarDay(now);
     return `${today.year}-${String(today.monthIndex + 1).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
   })();
   for (const tradeDate of cmeTradeDateCandidates(now)) {
+    if (cmeCircuitOpen()) return null;
+    if (budgetDeadlineMs != null && Date.now() >= budgetDeadlineMs) return null;
     try {
       const hit = await fetchCmeSettlementsForDate(productId, tradeDate);
       if (!hit) continue;
@@ -596,7 +685,8 @@ async function fetchCmeSettlements(
       if (age == null || age < 0 || age > MAX_CME_SETTLEMENT_AGE_DAYS) continue;
       return { tradeDate: hit.tradeDate, sessionDate, rows: hit.rows };
     } catch {
-      // try prior trade date
+      // Transport failures trip the circuit inside fetchCmeSettlementsForDate.
+      if (cmeCircuitOpen()) return null;
     }
   }
   return null;
@@ -730,35 +820,57 @@ function historicalFromPriced(
   };
 }
 
+/**
+ * Candidates nearest to `targetApprox`, preferring the exact day then ±1…±N
+ * (so a 1w target that falls just outside the CmeWS retention window can still
+ * resolve to the closest official settlement session, e.g. Tue→Wed).
+ */
+function historicalSessionCandidates(targetApprox: string, latestIso: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (iso: string) => {
+    if (seen.has(iso)) return;
+    if (iso >= latestIso) return;
+    if (isWeekendIso(iso)) return;
+    seen.add(iso);
+    out.push(iso);
+  };
+  push(targetApprox);
+  for (let delta = 1; delta <= HOLIDAY_WALK_EXTRA_DAYS; delta++) {
+    push(addDaysIso(targetApprox, delta));
+    push(addDaysIso(targetApprox, -delta));
+  }
+  return out;
+}
+
 async function resolveHistoricalSession(
   spec: CurveSpec,
   latestIso: string,
   targetApprox: string,
 ): Promise<{ sessionDate: string; source: "cme" | "snapshot"; rows: SnapshotRow[] } | null> {
-  for (let back = 0; back <= HOLIDAY_WALK_EXTRA_DAYS; back++) {
-    const candidate = addDaysIso(targetApprox, -back);
-    if (candidate >= latestIso) continue;
-    if (isWeekendIso(candidate)) continue;
+  const candidates = historicalSessionCandidates(targetApprox, latestIso);
 
-    if (cmeWindowIncludes(latestIso, candidate)) {
-      try {
-        const hit = await fetchCmeSettlementsForDate(spec.cmeProductId, isoToMdY(candidate));
-        if (hit && hit.rows.length > 0) {
-          const sessionDate = cmeTradeDateToIso(hit.tradeDate) ?? candidate;
-          const rows: SnapshotRow[] = hit.rows.map((row) => ({
-            year: row.year,
-            monthIndex: row.monthIndex,
-            price: row.price,
-            volume: row.volume,
-            openInterest: row.openInterest,
-          }));
-          return { sessionDate, source: "cme", rows };
-        }
-      } catch {
-        // try snapshot / next day
+  for (const candidate of candidates) {
+    if (!cmeWindowIncludes(latestIso, candidate)) continue;
+    try {
+      const hit = await fetchCmeSettlementsForDate(spec.cmeProductId, isoToMdY(candidate));
+      if (hit && hit.rows.length > 0) {
+        const sessionDate = cmeTradeDateToIso(hit.tradeDate) ?? candidate;
+        const rows: SnapshotRow[] = hit.rows.map((row) => ({
+          year: row.year,
+          monthIndex: row.monthIndex,
+          price: row.price,
+          volume: row.volume,
+          openInterest: row.openInterest,
+        }));
+        return { sessionDate, source: "cme", rows };
       }
+    } catch {
+      // try next candidate / snapshot
     }
+  }
 
+  for (const candidate of candidates) {
     const snap = await findCurveSnapshotOnOrBefore(spec.id, candidate, HOLIDAY_WALK_EXTRA_DAYS);
     if (snap && snap.sessionDate < latestIso) {
       return { sessionDate: snap.sessionDate, source: "snapshot", rows: snap.rows };
@@ -837,7 +949,7 @@ async function attachHistory(spec: CurveSpec, curve: FuturesCurve): Promise<Futu
   const todayEntry = historicalFromPriced(
     "today",
     latestIso,
-    curve.sourceLabel === "CME settlements" ? "cme" : "yahoo",
+    isOfficialCmeSettlementSource(curve.sourceLabel) ? "cme" : "yahoo",
     todayMonths,
     todayPrices,
   );
@@ -863,6 +975,11 @@ async function attachHistory(spec: CurveSpec, curve: FuturesCurve): Promise<Futu
       const priceByKey = new Map<string, number>();
       for (const row of resolved.rows) {
         priceByKey.set(`${row.year}-${row.monthIndex}`, row.price);
+      }
+      // Persist official history strips so later 1w/1m overlays can use snapshots
+      // after CmeWS drops the tradeDate from its short retention window.
+      if (resolved.source === "cme") {
+        await saveSettlementSnapshot(spec.id, resolved.sessionDate, resolved.rows);
       }
       historyEntries.push(
         historicalFromPriced(target.horizon, resolved.sessionDate, resolved.source, todayMonths, priceByKey),
@@ -968,7 +1085,7 @@ function finalizePoints(
     sessionNote: [
       opts.sessionNote,
       hasGap
-        ? opts.sourceLabel === "CME settlements"
+        ? isOfficialCmeSettlementSource(opts.sourceLabel)
           ? "A blank month had no verified mark on this trade date. Later months that did settle stay on the curve, and the line does not cross the blank."
           : "A blank month had no trade on this session. Later months that did trade stay on the curve, and the line does not cross the blank."
         : null,
@@ -988,18 +1105,31 @@ function finalizePoints(
   };
 }
 
+type SettlementAssembleOpts = {
+  sourceLabel: "CME settlements" | "CME Daily Bulletin";
+  sessionNote: string;
+};
+
 /** Exported for audit / unit tests — production path is loadFuturesTermStructure. */
 export function assembleCme(
   spec: CurveSpec,
   payload: { sessionDate: string; rows: SettlementHit[] },
   now: Date,
+  assembleOpts: SettlementAssembleOpts = {
+    sourceLabel: "CME settlements",
+    sessionNote: `Official CME Group settlement prices for trade date ${payload.sessionDate}.`,
+  },
 ): FuturesCurve {
   // Deduplicate by delivery month (first row wins; CME usually sends one settle per month).
   const byMonth = new Map<string, SettlementHit>();
   for (const row of payload.rows) {
+    // Drop post-LTD months (critical for Daily Bulletin where vol/OI are unavailable).
+    if (!isFuturesContractActiveOnSession(spec.id, row.year, row.monthIndex, payload.sessionDate)) {
+      continue;
+    }
     if (!cmeStripEligible(row.year, row.monthIndex, spec.cycle, now)) continue;
     const key = `${row.year}-${row.monthIndex}`;
-    if (!byMonth.has(key)) byMonth.set(key, row);
+    if (!byMonth.has(key)) byMonth.set(key, { ...row, sessionDate: payload.sessionDate });
   }
   const filtered = [...byMonth.values()].sort((a, b) => a.year - b.year || a.monthIndex - b.monthIndex);
   // Cap is a safety bound for the 12M strip (+ reach-through) — not a Yahoo probe leftover.
@@ -1046,9 +1176,9 @@ export function assembleCme(
 
   return finalizePoints(spec, points, {
     sessionDate: payload.sessionDate,
-    sourceLabel: "CME settlements",
+    sourceLabel: assembleOpts.sourceLabel,
     exchange: spec.exchangeLabel,
-    sessionNote: `Official CME Group settlement prices for trade date ${payload.sessionDate}.`,
+    sessionNote: assembleOpts.sessionNote,
     spreadCaution: null,
   });
 }
@@ -1178,11 +1308,43 @@ async function loadYahooCurve(spec: CurveSpec, now: Date): Promise<FuturesCurve>
   return assembleYahoo(spec, hits, now);
 }
 
+async function saveSettlementSnapshot(
+  curveId: string,
+  sessionDate: string,
+  rows: Array<{ year: number; monthIndex: number; price: number; volume: number; openInterest: number }>,
+): Promise<void> {
+  await saveCurveSnapshot(
+    curveId,
+    sessionDate,
+    rows.map((row) => ({
+      year: row.year,
+      monthIndex: row.monthIndex,
+      price: row.price,
+      volume: row.volume,
+      openInterest: row.openInterest,
+    })),
+  );
+}
+
+/**
+ * Waterfall per curve:
+ * 1) CmeWS Settlements JSON (unchanged primary)
+ * 2) CME Daily Bulletin PDF (official settlement fallback — no Yahoo mix)
+ * 3) Yahoo last-trades only if both settlement sources fail (explicitly labeled)
+ */
 export async function loadFuturesTermStructure(now = new Date()): Promise<FuturesTermStructure> {
   try {
+    /** Local verification only: skip CmeWS so Daily Bulletin path is exercised on :8080. */
+    const forceDailyBulletin = process.env.FUTURES_FORCE_DAILY_BULLETIN === "1";
+    const liveBudgetDeadline = Date.now() + CME_LIVE_BUDGET_MS;
+
     const cmePayloads = await mapLimited(CURVES, 4, async (spec) => {
+      if (forceDailyBulletin || cmeCircuitOpen()) return { spec, payload: null };
       try {
-        return { spec, payload: await fetchCmeSettlements(spec.cmeProductId, now) };
+        return {
+          spec,
+          payload: await fetchCmeSettlements(spec.cmeProductId, now, liveBudgetDeadline),
+        };
       } catch {
         return { spec, payload: null };
       }
@@ -1192,20 +1354,49 @@ export async function loadFuturesTermStructure(now = new Date()): Promise<Future
       if (payload) {
         const curve = assembleCme(spec, payload, now);
         if (curve.enabled) {
-          await saveCurveSnapshot(
-            spec.id,
-            payload.sessionDate,
-            payload.rows.map((row) => ({
+          await saveSettlementSnapshot(spec.id, payload.sessionDate, payload.rows);
+          return curve;
+        }
+      }
+
+      // Official settlement fallback — Daily Bulletin (do not mix with Yahoo lasts).
+      try {
+        const bulletin = await fetchDailyBulletinSettlements(spec.id);
+        if (bulletin) {
+          const ageOk = (() => {
+            const today = exchangeCalendarDay(now);
+            const todayIso = `${today.year}-${String(today.monthIndex + 1).padStart(2, "0")}-${String(today.day).padStart(2, "0")}`;
+            const age = calendarDaysBetween(bulletin.sessionDate, todayIso);
+            return age != null && age >= 0 && age <= MAX_CME_SETTLEMENT_AGE_DAYS;
+          })();
+          if (ageOk) {
+            const settlementRows: SettlementHit[] = bulletin.rows.map((row) => ({
               year: row.year,
               monthIndex: row.monthIndex,
               price: row.price,
               volume: row.volume,
               openInterest: row.openInterest,
-            })),
-          );
-          return curve;
+              sessionDate: bulletin.sessionDate,
+            }));
+            const curve = assembleCme(
+              spec,
+              { sessionDate: bulletin.sessionDate, rows: settlementRows },
+              now,
+              {
+                sourceLabel: "CME Daily Bulletin",
+                sessionNote: `Official CME Group Daily Bulletin settlement prices for trade date ${bulletin.sessionDate}. CmeWS settlements were unavailable.`,
+              },
+            );
+            if (curve.enabled) {
+              await saveSettlementSnapshot(spec.id, bulletin.sessionDate, settlementRows);
+              return curve;
+            }
+          }
         }
+      } catch {
+        // fall through to Yahoo
       }
+
       try {
         return await loadYahooCurve(spec, now);
       } catch {

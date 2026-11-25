@@ -6,7 +6,6 @@ import {
   PeriodMetricCell,
 } from "@/components/markets/PeriodMetricCell";
 import { MarketStatusChip, isQuoteHistoryStale } from "@/components/markets/MarketStatusChip";
-import { QuoteSourceMeta } from "@/components/markets/QuoteSourceMeta";
 import { Sparkline } from "@/components/Sparkline";
 import { FearGreedGauge } from "@/components/watchlist/FearGreedGauge";
 
@@ -286,7 +285,6 @@ export function WatchlistMarketCard({ q }: { q: Quote }) {
               <span className="ml-1 text-[11px] font-normal text-foreground/55">{q.unit}</span>
             ) : null}
           </div>
-          <QuoteSourceMeta q={q} />
           {lowHighCompact}
         </div>
         {chartArea(sparkHeightCompact, fearGreedHeightCompact)}
@@ -314,7 +312,6 @@ export function WatchlistMarketCard({ q }: { q: Quote }) {
                 </span>
                 {lowHighWide}
               </div>
-              <QuoteSourceMeta q={q} />
             </div>
             <div className="flex min-w-0 shrink-0 items-start justify-self-end justify-end gap-1.5 self-center pt-px">
               <StatusChip q={q} stale={stale} />

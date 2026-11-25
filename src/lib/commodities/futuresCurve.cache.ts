@@ -4,7 +4,7 @@ import { createSwrCache } from "./swrCache";
 
 const DISK_CACHE_PATH = "data/cache/commodities-futures-curve.json";
 const CACHE_MS = 15 * 60 * 1000;
-const CACHE_VERSION = 12;
+const CACHE_VERSION = 13;
 
 function usable(payload: FuturesTermStructure | null | undefined): payload is FuturesTermStructure {
   return Boolean(

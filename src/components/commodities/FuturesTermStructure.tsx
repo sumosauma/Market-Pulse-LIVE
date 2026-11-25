@@ -12,6 +12,7 @@ import {
   type HistoricalCurve,
   type HistoryCurveHorizon,
 } from "@/lib/commodities/futuresCurve";
+import { interpolateHistoricalPoints } from "@/lib/commodities/futuresCurveInterpolation";
 
 /** High-contrast categorical palette — one clear hue per horizon. */
 const HISTORY_COLORS: Record<HistoryCurveHorizon, string> = {
@@ -171,8 +172,19 @@ function FuturesCurveTooltipBody({ curve }: { curve: FuturesCurve }) {
         <span className="font-medium text-foreground">{futuresCurvePricingUnit(curve)}</span>
       </p>
       <p className="leading-snug">
+        <span className="text-muted-foreground">Source:</span>{" "}
+        <span className="font-medium text-foreground">{curve.sourceLabel ?? "N/A"}</span>
+      </p>
+      <p className="leading-snug">
         <span className="text-muted-foreground">As of:</span>{" "}
         <span className="font-medium text-foreground">{futuresCurveAsOf(curve)}</span>
+      </p>
+      {curve.sessionNote ? (
+        <p className="leading-snug text-muted-foreground">{curve.sessionNote}</p>
+      ) : null}
+      <p className="leading-snug text-muted-foreground">
+        Missing historical observations may be estimated using the shape of today&apos;s verified
+        futures curve, without changing verified historical prices.
       </p>
     </div>
   );
@@ -192,13 +204,20 @@ function formatSigned(value: number, digits: number): string {
   return abs;
 }
 
-function sourceCaption(entry: HistoricalCurve | undefined): string {
+function sourceCaption(
+  entry: HistoricalCurve | undefined,
+  curveSourceLabel?: string | null,
+): string {
   if (!entry) return "Unavailable";
   if (entry.unavailableReason && entry.points.every((point) => point.price == null)) {
     return entry.unavailableReason;
   }
   if (!entry.sessionDate || !entry.source) return entry.unavailableReason ?? "Unavailable";
-  if (entry.source === "cme") return `Source: CME settlement ${entry.sessionDate}`;
+  if (entry.source === "cme") {
+    const label =
+      curveSourceLabel === "CME Daily Bulletin" ? "CME Daily Bulletin settlement" : "CME settlement";
+    return `Source: ${label} ${entry.sessionDate}`;
+  }
   if (entry.source === "snapshot") return `Source: Snapshot ${entry.sessionDate}`;
   return `Source: Yahoo close ${entry.sessionDate}`;
 }
@@ -222,10 +241,29 @@ type CurveTooltipRow = {
   label?: string;
   key?: string;
   today?: number | null;
+  /** Tooltip / hover price (verified or interpolated display). */
   "1d"?: number | null;
   "1w"?: number | null;
   "1m"?: number | null;
+  /** Dashed path: interpolated fills + bounding verified anchors only. */
+  "1dFill"?: number | null;
+  "1wFill"?: number | null;
+  "1mFill"?: number | null;
+  /** Observed-only solid path (null on interpolated months). */
+  "1dObserved"?: number | null;
+  "1wObserved"?: number | null;
+  "1mObserved"?: number | null;
+  "1dInterpolated"?: boolean;
+  "1wInterpolated"?: boolean;
+  "1mInterpolated"?: boolean;
 };
+
+function horizonInterpolated(row: CurveTooltipRow | undefined, horizon: HistoryCurveHorizon): boolean {
+  if (!row || horizon === "today") return false;
+  if (horizon === "1d") return row["1dInterpolated"] === true;
+  if (horizon === "1w") return row["1wInterpolated"] === true;
+  return row["1mInterpolated"] === true;
+}
 
 function readSeriesPrice(
   payload: Array<{ dataKey?: string | number; value?: number | null; payload?: CurveTooltipRow }> | undefined,
@@ -272,20 +310,25 @@ function MultiCurveTooltip({
   const levels = activeHorizons.map((horizon) => ({
     horizon,
     value: readSeriesPrice(payload, row, horizon, todayByKey, key),
+    interpolated: horizonInterpolated(row, horizon),
   }));
   const todayPx = levels.find((level) => level.horizon === "today")?.value ?? null;
   const singleOverlay = overlays.length === 1 ? overlays[0]! : null;
-  const priorPx = singleOverlay
-    ? (levels.find((level) => level.horizon === singleOverlay)?.value ?? null)
+  const priorLevel = singleOverlay
+    ? levels.find((level) => level.horizon === singleOverlay)
     : null;
+  const priorPx = priorLevel?.value ?? null;
+  const priorInterpolated = priorLevel?.interpolated === true;
   const priorUnavailable = singleOverlay != null && priorPx == null;
   const anyMissingOverlay = overlays.some(
     (horizon) => levels.find((level) => level.horizon === horizon)?.value == null,
   );
 
-  /** Absolute/fraction only when exactly one historical overlay is active. */
+  /** Absolute/fraction only for verified (non-interpolated) overlay prices. */
   const changeAbs =
-    singleOverlay != null && todayPx != null && priorPx != null ? todayPx - priorPx : null;
+    singleOverlay != null && todayPx != null && priorPx != null && !priorInterpolated
+      ? todayPx - priorPx
+      : null;
   const changePct =
     changeAbs != null && priorPx != null && priorPx !== 0 ? (changeAbs / priorPx) * 100 : null;
 
@@ -317,7 +360,7 @@ function MultiCurveTooltip({
         </div>
 
         <div className="space-y-2 px-3 py-2.5">
-          {levels.map(({ horizon, value }) => {
+          {levels.map(({ horizon, value, interpolated }) => {
             const missingPrior = horizon !== "today" && value == null;
             return (
               <div
@@ -348,6 +391,11 @@ function MultiCurveTooltip({
                     {value != null && unit ? (
                       <span className="ml-1 text-[10px] text-muted-foreground">{unit}</span>
                     ) : null}
+                    {interpolated ? (
+                      <div className="mt-0.5 text-[9px] font-sans font-medium tracking-wide text-muted-foreground">
+                        Estimated
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>
@@ -355,7 +403,7 @@ function MultiCurveTooltip({
           })}
         </div>
 
-        {comparing && singleOverlay != null && !priorUnavailable ? (
+        {comparing && singleOverlay != null && !priorUnavailable && !priorInterpolated ? (
           <div className="border-t border-border/80 bg-muted/35 px-3 py-2.5">
             <div className="grid grid-cols-2 gap-3 text-center">
               <div>
@@ -418,7 +466,40 @@ function CurveChart({
   const activeHorizons: HistoryCurveHorizon[] = ["today", ...overlays];
 
   const rows = useMemo(() => {
-    return curve.points.map((point) => {
+    const monthKeys = curve.points.map((point) => ({
+      year: point.year,
+      monthIndex: point.monthIndex,
+    }));
+
+    const todayReference = monthKeys.map((month) => {
+      const hit = byHorizon.get("today")?.points.find(
+        (p) => p.year === month.year && p.monthIndex === month.monthIndex,
+      );
+      const fromHistory = hit?.price;
+      if (fromHistory != null && fromHistory > 0) return fromHistory;
+      const live = curve.points.find(
+        (p) => p.year === month.year && p.monthIndex === month.monthIndex && !p.gap,
+      )?.price;
+      return live != null && live > 0 ? live : null;
+    });
+
+    const filledByHorizon = new Map<
+      OverlayHorizon,
+      ReturnType<typeof interpolateHistoricalPoints>
+    >();
+    for (const horizon of OVERLAY_HORIZONS) {
+      const entry = byHorizon.get(horizon);
+      const raw = monthKeys.map((month) => {
+        const hit = entry?.points.find(
+          (p) => p.year === month.year && p.monthIndex === month.monthIndex,
+        );
+        return { year: month.year, monthIndex: month.monthIndex, price: hit?.price ?? null };
+      });
+      // Skip estimation when the overlay has no verified points at all.
+      filledByHorizon.set(horizon, interpolateHistoricalPoints(raw, todayReference));
+    }
+
+    return curve.points.map((point, index) => {
       const key = `${point.year}-${point.monthIndex}`;
       const todayHit = byHorizon.get("today")?.points.find(
         (p) => p.year === point.year && p.monthIndex === point.monthIndex,
@@ -430,10 +511,30 @@ function CurveChart({
         today: todayHit?.price ?? point.price,
       };
       for (const horizon of OVERLAY_HORIZONS) {
-        const hit = byHorizon
-          .get(horizon)
-          ?.points.find((p) => p.year === point.year && p.monthIndex === point.monthIndex);
-        row[horizon] = hit?.price ?? null;
+        const series = filledByHorizon.get(horizon) ?? [];
+        const filled = series[index];
+        const observed = filled?.price ?? null;
+        const display = filled?.displayPrice ?? null;
+        const interpolated = filled?.interpolated === true;
+        const neighborInterpolated =
+          series[index - 1]?.interpolated === true || series[index + 1]?.interpolated === true;
+        // Dashed path only across gaps (plus the verified anchors that bound them).
+        const dashValue =
+          interpolated || (observed != null && neighborInterpolated) ? display : null;
+        row[horizon] = display;
+        if (horizon === "1d") {
+          row["1dFill"] = dashValue;
+          row["1dObserved"] = observed;
+          row["1dInterpolated"] = interpolated;
+        } else if (horizon === "1w") {
+          row["1wFill"] = dashValue;
+          row["1wObserved"] = observed;
+          row["1wInterpolated"] = interpolated;
+        } else {
+          row["1mFill"] = dashValue;
+          row["1mObserved"] = observed;
+          row["1mInterpolated"] = interpolated;
+        }
       }
       return row;
     });
@@ -518,17 +619,35 @@ function CurveChart({
               animationDuration={450}
               animationEasing="ease-in-out"
             />
-            {overlays.map((horizon) => {
+            {overlays.flatMap((horizon) => {
               const color = HISTORY_COLORS[horizon];
-              return (
+              const fillKey = `${horizon}Fill` as const;
+              const observedKey = `${horizon}Observed` as const;
+              return [
                 <Line
-                  key={horizon}
+                  key={`${horizon}-fill`}
                   type="monotone"
-                  dataKey={horizon}
+                  dataKey={fillKey}
                   name={horizon}
                   stroke={color}
+                  strokeWidth={1.75}
+                  strokeDasharray="6 5"
+                  strokeOpacity={0.95}
+                  connectNulls={false}
+                  legendType="none"
+                  dot={false}
+                  activeDot={{ r: 4.5, fill: color, stroke: "var(--card)", strokeWidth: 1.5 }}
+                  // Animation rewrites stroke-dasharray to a path-length pattern and
+                  // leaves interpolated fills looking solid — keep dash static.
+                  isAnimationActive={false}
+                />,
+                <Line
+                  key={`${horizon}-observed`}
+                  type="monotone"
+                  dataKey={observedKey}
+                  name={`${horizon}-observed`}
+                  stroke={color}
                   strokeWidth={2}
-                  strokeDasharray="6 4"
                   connectNulls={false}
                   legendType="none"
                   dot={{ r: 2.5, fill: color, stroke: "var(--card)", strokeWidth: 1 }}
@@ -536,8 +655,8 @@ function CurveChart({
                   isAnimationActive
                   animationDuration={450}
                   animationEasing="ease-in-out"
-                />
-              );
+                />,
+              ];
             })}
           </LineChart>
         </ResponsiveContainer>
@@ -686,7 +805,7 @@ function DeltaTable({ curve }: { curve: FuturesCurve }) {
               {HISTORY_CURVE_HORIZONS.map((horizon) => (
                 <span key={horizon}>
                   <span className="font-medium text-foreground/80">{HISTORY_LABELS[horizon]}:</span>{" "}
-                  {sourceCaption(byHorizon.get(horizon))}
+                  {sourceCaption(byHorizon.get(horizon), curve.sourceLabel)}
                 </span>
               ))}
             </div>
@@ -697,6 +816,43 @@ function DeltaTable({ curve }: { curve: FuturesCurve }) {
   );
 }
 
+/** True when an enabled overlay actually renders estimated (dashed) segments. */
+function enabledOverlaysHaveEstimatedSegments(
+  curve: FuturesCurve,
+  overlays: ReadonlyArray<OverlayHorizon>,
+): boolean {
+  if (overlays.length === 0 || !curve.enabled || curve.points.length === 0) return false;
+
+  const byHorizon = historyByHorizon(curve);
+  const monthKeys = curve.points.map((point) => ({
+    year: point.year,
+    monthIndex: point.monthIndex,
+  }));
+  const todayReference = monthKeys.map((month) => {
+    const hit = byHorizon.get("today")?.points.find(
+      (p) => p.year === month.year && p.monthIndex === month.monthIndex,
+    );
+    if (hit?.price != null && hit.price > 0) return hit.price;
+    const live = curve.points.find(
+      (p) => p.year === month.year && p.monthIndex === month.monthIndex && !p.gap,
+    )?.price;
+    return live != null && live > 0 ? live : null;
+  });
+
+  for (const horizon of overlays) {
+    const entry = byHorizon.get(horizon);
+    const raw = monthKeys.map((month) => {
+      const hit = entry?.points.find(
+        (p) => p.year === month.year && p.monthIndex === month.monthIndex,
+      );
+      return { year: month.year, monthIndex: month.monthIndex, price: hit?.price ?? null };
+    });
+    const filled = interpolateHistoricalPoints(raw, todayReference);
+    if (filled.some((point) => point.interpolated)) return true;
+  }
+  return false;
+}
+
 export function FuturesCurvePanel({
   curve,
   overlays,
@@ -705,6 +861,14 @@ export function FuturesCurvePanel({
   overlays: OverlayHorizon[];
 }) {
   const orderedOverlays = OVERLAY_HORIZONS.filter((horizon) => overlays.includes(horizon));
+  const showEstimatedLegend = useMemo(
+    () =>
+      enabledOverlaysHaveEstimatedSegments(
+        curve,
+        OVERLAY_HORIZONS.filter((horizon) => overlays.includes(horizon)),
+      ),
+    [curve, overlays],
+  );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -729,14 +893,25 @@ export function FuturesCurvePanel({
             >
               <span
                 className="h-0.5 w-3 rounded-full"
-                style={{
-                  background: `repeating-linear-gradient(90deg, ${HISTORY_COLORS[horizon]} 0 3px, transparent 3px 5px)`,
-                }}
+                style={{ background: HISTORY_COLORS[horizon] }}
                 aria-hidden
               />
               {HISTORY_LABELS[horizon]}
             </span>
           ))}
+          {showEstimatedLegend ? (
+            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+              <span
+                className="h-0.5 w-3.5"
+                style={{
+                  background:
+                    "repeating-linear-gradient(90deg, var(--muted-foreground) 0 3px, transparent 3px 5px)",
+                }}
+                aria-hidden
+              />
+              Estimated
+            </span>
+          ) : null}
         </div>
 
         <div className="justify-self-end" aria-hidden />
