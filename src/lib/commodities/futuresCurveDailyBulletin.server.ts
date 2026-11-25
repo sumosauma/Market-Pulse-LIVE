@@ -4,8 +4,12 @@
  *
  * Server-side fetch of published PDFs (Avanza-style), not CmeWS Settlements JSON scraping.
  * Used only as a fallback when CmeWS settlements are unavailable.
+ *
+ * PDF text goes through extractPdfText (runtime createRequire of pdf-parse). A static
+ * import of pdf-parse is intentionally avoided — Nitro's production bundle breaks
+ * pdf-parse's dynamic pdf.js require and previously disabled this entire fallback on DO.
  */
-import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import { extractPdfText } from "./pdfText.server";
 
 const FETCH_TIMEOUT_MS = 20_000;
 const UA =
@@ -223,9 +227,7 @@ async function fetchPdfText(url: string): Promise<string | null> {
     });
     if (!res.ok) return null;
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < 100 || buf.slice(0, 4).toString() !== "%PDF") return null;
-    const parsed = await pdfParse(buf);
-    return typeof parsed.text === "string" ? parsed.text : null;
+    return extractPdfText(buf);
   } catch {
     return null;
   }

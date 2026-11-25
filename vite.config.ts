@@ -15,8 +15,19 @@ export default defineConfig({
   tanstackStart: {
     server: { entry: "server" },
   },
-  plugins: [nitro({ preset: "node-server" })],
+  plugins: [
+    nitro({
+      preset: "node-server",
+      // Trace full pdf-parse (incl. nested pdf.js) into .output/server/node_modules.
+      // Required for Daily Bulletin when the process cwd/node_modules layout differs.
+      traceDeps: ["pdf-parse*"],
+    }),
+  ],
   vite: {
+    ssr: {
+      // Never inline pdf-parse — its dynamic pdf.js require breaks when bundled.
+      external: ["pdf-parse", "pdf-parse/lib/pdf-parse.js"],
+    },
     resolve: {
       // SheetJS's ESM build has no default export. Node production bundles the CJS entry.
       alias: {
