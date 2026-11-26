@@ -448,7 +448,7 @@ export function SectorPerformancePanel({
                         </div>
                         {row.benchmark ? (
                           <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                            Benchmark
+                            Benchmark ({row.ticker})
                           </div>
                         ) : null}
                       </div>

@@ -1,12 +1,18 @@
 /**
  * Process-local memory + disk cache with stale-while-revalidate.
  *
- * Fresh (age < cacheMs): return immediately.
- * Expired but valid: return immediately with markStale(), kick one background refresh.
+ * Fresh (age < cacheMs): return immediately (preserving any failure flag).
+ * Expired but valid: return immediately without treating expiry as failure;
+ *   kick one background refresh. fromStaleCache is set only when that refresh
+ *   (or a blocking live load) actually fails, and sticks until a successful
+ *   persist clears it.
  * Miss: await a single shared live load.
  *
  * Does not rewrite market timestamps inside payloads — callers must preserve
  * fetchedAt / asOf from the cached snapshot when serving stale copies.
+ * Successful remote hydrate (e.g. GitHub Gist) is a valid load path and must
+ * not be classified as a failed refresh; market-data age remains in payload
+ * timestamps (sessionDate / asOf / fetchedAt).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
@@ -26,7 +32,7 @@ export type SwrCacheOptions<T> = {
   cacheWorthy?: (payload: T | null | undefined) => payload is T;
   loadLive: () => Promise<T>;
   mergeLive?: (live: T, prior: T | null) => T;
-  /** Annotate a served stale snapshot without changing market timestamps. */
+  /** Annotate a served snapshot after a genuine live refresh failure. */
   markStale: (payload: T) => T;
   /** Whether a live result should replace memory/disk. Defaults to cacheWorthy/usable. */
   shouldPersist?: (payload: T) => boolean;
@@ -104,10 +110,12 @@ export function createSwrCache<T>(options: SwrCacheOptions<T>): SwrCacheHandle<T
     try {
       const remote = await options.hydrateRemote();
       if (!remote || !options.usable(remote.payload)) return;
+      // Successful remote retrieval (e.g. Gist) is a valid production source —
+      // never classify it as a failed refresh. Market-data age stays in payload fields.
       memory.savedAt = remote.savedAt;
-      memory.payload = remote.payload;
-      if (cacheWorthy(remote.payload)) {
-        writeDiskFile(options.diskPath, options.version, remote.savedAt, remote.payload);
+      memory.payload = asFreshEntry(remote.payload);
+      if (cacheWorthy(memory.payload)) {
+        writeDiskFile(options.diskPath, options.version, remote.savedAt, memory.payload);
       }
     } catch {
       // Remote is best-effort; live load may still succeed.
@@ -115,7 +123,7 @@ export function createSwrCache<T>(options: SwrCacheOptions<T>): SwrCacheHandle<T
   }
 
   function asFreshEntry(payload: T): T {
-    // A successful live load is a fresh cache entry. Nested upstream SWR flags
+    // A successful live/remote load is a fresh cache entry. Nested upstream SWR flags
     // (e.g. signals built while indicators were expired) must not stick on disk
     // or every subsequent TTL hit would keep advertising "stale" forever.
     return { ...payload, fromStaleCache: false } as T;
@@ -130,6 +138,19 @@ export function createSwrCache<T>(options: SwrCacheOptions<T>): SwrCacheHandle<T
       writeDiskFile(options.diskPath, options.version, savedAt, stored);
     }
     return stored;
+  }
+
+  /**
+   * Record a genuine live-refresh failure on the cached snapshot.
+   * Does not bump savedAt (TTL / revalidate cadence must keep trying).
+   */
+  function markRefreshFailed(payload: T): T {
+    const marked = options.markStale(payload);
+    memory.payload = marked;
+    if (options.usable(marked)) {
+      writeDiskFile(options.diskPath, options.version, memory.savedAt, marked);
+    }
+    return marked;
   }
 
   function ageMs(savedAt: number, now: number): number {
@@ -159,8 +180,16 @@ export function createSwrCache<T>(options: SwrCacheOptions<T>): SwrCacheHandle<T
   }
 
   function kickBackground(prior: T): void {
-    // Fire-and-forget; errors keep prior cache. Shared via liveInflight.
-    void runLive(prior);
+    // Capture generation so a later successful persist is not overwritten by a
+    // lagged failure from an earlier in-flight attempt.
+    const kickedSavedAt = memory.savedAt;
+    void runLive(prior).then((result) => {
+      const refreshFailed = result.error != null || result.payload == null;
+      if (!refreshFailed) return;
+      if (memory.savedAt !== kickedSavedAt) return;
+      if (!options.usable(memory.payload)) return;
+      markRefreshFailed(memory.payload);
+    });
   }
 
   async function load(): Promise<T> {
@@ -173,17 +202,15 @@ export function createSwrCache<T>(options: SwrCacheOptions<T>): SwrCacheHandle<T
     if (options.usable(memory.payload)) {
       const fresh = ageMs(memory.savedAt, now) < options.cacheMs;
       if (fresh) {
-        // Within TTL: clear any leftover fromStaleCache bit on the stored snapshot.
-        const hit = memory.payload;
-        return (hit as { fromStaleCache?: boolean }).fromStaleCache
-          ? ({ ...hit, fromStaleCache: false } as T)
-          : hit;
+        // Within TTL: preserve fromStaleCache if a prior refresh failed — only a
+        // successful persist may clear it.
+        return memory.payload;
       }
-      // Expired: serve the snapshot taken now; revalidate once in background.
-      // Capture before kick so a fast refresh cannot mark the new payload stale.
+      // Expired: serve the snapshot as-is (do not treat TTL expiry as failure).
+      // Revalidate once in background; mark failure only if that attempt fails.
       const snapshot = memory.payload;
       kickBackground(snapshot);
-      return options.markStale(snapshot);
+      return snapshot;
     }
 
     // Blocking miss — await shared live load.
@@ -197,7 +224,7 @@ export function createSwrCache<T>(options: SwrCacheOptions<T>): SwrCacheHandle<T
     diskHydrated = false;
     hydrateFromDisk();
     if (options.usable(memory.payload)) {
-      return options.markStale(memory.payload);
+      return markRefreshFailed(memory.payload);
     }
 
     if (result.error) throw result.error;

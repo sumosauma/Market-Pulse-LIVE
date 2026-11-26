@@ -427,7 +427,7 @@ function CommodityTable({
   return (
     <table className="w-full border-collapse text-left">
       <thead>
-        <tr className="border-b border-border text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+        <tr className="border-b border-border text-[11px] uppercase tracking-[0.06em] text-foreground/85">
           <th className="py-2 pl-3 pr-0 font-semibold">Commodity</th>
           <th className="py-2 pl-0 pr-2 text-right font-semibold">Last</th>
           <th className="px-2 py-2 text-right font-semibold">1D %</th>
@@ -635,10 +635,7 @@ function Analysis({
         : null;
   const nordicHeading =
     isNordic && ranged && ranged.points.length > 0
-      ? {
-          title: `Price History · ${formatNordicHistorySpan(ranged.points[0]!.date, ranged.points[ranged.points.length - 1]!.date)}`,
-          count: `${ranged.points.length} daily prices`,
-        }
+      ? `Price History · ${formatNordicHistorySpan(ranged.points[0]!.date, ranged.points[ranged.points.length - 1]!.date)}`
       : null;
   const shown = curve?.enabled ? curveWithinHorizon(curve, DISPLAY_CURVE_MONTHS) : curve;
   const coversHorizon = curve?.enabled ? curveCoversHorizon(curve, DISPLAY_CURVE_MONTHS) : false;
@@ -786,7 +783,7 @@ function Analysis({
                 <p className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-semibold leading-snug tracking-tight text-foreground">
                   <span className="truncate py-0.5">
                     {nordicHeading
-                      ? nordicHeading.title
+                      ? nordicHeading
                       : showingIntraday
                         ? `${quote.name} · 1D`
                         : `${quote.name} price history`}
@@ -795,9 +792,7 @@ function Analysis({
                     <InstrumentTooltipBody quote={quote} />
                   </CommodityInfo>
                 </p>
-                {nordicHeading ? (
-                  <p className="shrink-0 text-right text-[10px] text-muted-foreground">{nordicHeading.count}</p>
-                ) : !showingIntraday && ranged.partial && chartRange !== "1D" ? (
+                {!nordicHeading && !showingIntraday && ranged.partial && chartRange !== "1D" ? (
                   <p className="shrink-0 text-right text-[10px] text-muted-foreground">
                     {ranged.points.length}/{RANGE_SESSIONS[chartRange as DailyRangeId]} sessions
                   </p>
@@ -1024,7 +1019,7 @@ function MetricGroup({
         className="mb-2 border-l-[3px] pl-2.5"
         style={{ borderLeftColor: VIEW_ACCENTS[accent] }}
       >
-        <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        <div className="text-[10px] font-[650] uppercase tracking-[0.16em] text-foreground/80">
           {title}
         </div>
       </div>

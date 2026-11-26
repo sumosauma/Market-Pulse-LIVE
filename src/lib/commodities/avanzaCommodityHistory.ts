@@ -5,9 +5,12 @@
 
 import { percentChange, trimChart, type CommodityPoint } from "./overview";
 import type { HistoryPoint } from "./indicators";
+import { INTRADAY_MIN_POINTS } from "./intraday";
 
 const FETCH_TIMEOUT_MS = 8_000;
 const USER_AGENT = "Mozilla/5.0 (compatible; MarketPulse-Commodity-Avanza/1.0)";
+/** Calendar days to walk back for a completed 5-minute session (weekends + holidays). */
+const INTRADAY_PRIOR_LOOKBACK_DAYS = 7;
 
 /** Orderbooks from avanza.se/index/om-indexet.html/{id}/… */
 export const AVANZA_COMMODITY_ORDERBOOKS = {
@@ -202,17 +205,24 @@ export type AvanzaIntradayPayload = Readonly<{
   previousClosingPrice: number | null;
 }>;
 
-/**
- * Today's (or latest available) 5-minute OHLC for the same orderbook as Last / daily history.
- * Does not invent bars — empty when the feed returns none.
- */
-export async function fetchAvanzaCommodityIntraday(
-  commodityId: AvanzaCommodityId,
-): Promise<AvanzaIntradayPayload | null> {
-  const orderBookId = AVANZA_COMMODITY_ORDERBOOKS[commodityId];
-  const json = await avanzaGetJson<AvanzaPriceChartJson & { from?: string; to?: string }>(
-    `https://www.avanza.se/_api/price-chart/stock/${orderBookId}?timePeriod=today&resolution=five_minutes`,
-  );
+type AvanzaIntradayChartJson = AvanzaPriceChartJson & { from?: string; to?: string };
+
+function stockholmCalendarDay(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Stockholm" }).format(now);
+}
+
+/** Shift a `YYYY-MM-DD` calendar day by `delta` days (UTC date arithmetic). */
+export function shiftIsoCalendarDay(isoDay: string, delta: number): string {
+  const [y, m, d] = isoDay.split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  return dt.toISOString().slice(0, 10);
+}
+
+function parseAvanzaIntradayChart(
+  json: AvanzaIntradayChartJson | null,
+  fallbackSessionDate?: string | null,
+): AvanzaIntradayPayload | null {
   if (!json) return null;
   const bars: AvanzaIntradayBar[] = [];
   for (const bar of json.ohlc ?? []) {
@@ -226,9 +236,8 @@ export async function fetchAvanzaCommodityIntraday(
       ? json.to.slice(0, 10)
       : typeof json.from === "string" && /^\d{4}-\d{2}-\d{2}/.test(json.from)
         ? json.from.slice(0, 10)
-        : bars.length
-          ? new Date(bars[bars.length - 1]!.timestamp).toISOString().slice(0, 10)
-          : null;
+        : fallbackSessionDate ??
+          (bars.length ? new Date(bars[bars.length - 1]!.timestamp).toISOString().slice(0, 10) : null);
   return {
     bars,
     sessionDate,
@@ -237,4 +246,46 @@ export async function fetchAvanzaCommodityIntraday(
         ? json.previousClosingPrice
         : null,
   };
+}
+
+async function fetchAvanzaIntradayToday(orderBookId: string): Promise<AvanzaIntradayPayload | null> {
+  const json = await avanzaGetJson<AvanzaIntradayChartJson>(
+    `https://www.avanza.se/_api/price-chart/stock/${orderBookId}?timePeriod=today&resolution=five_minutes`,
+  );
+  return parseAvanzaIntradayChart(json);
+}
+
+/** Verified historical date-range endpoint (same calendar day in `from` / `to`). */
+async function fetchAvanzaIntradaySessionDay(
+  orderBookId: string,
+  day: string,
+): Promise<AvanzaIntradayPayload | null> {
+  const json = await avanzaGetJson<AvanzaIntradayChartJson>(
+    `https://www.avanza.se/_api/price-chart/stock/${orderBookId}?resolution=five_minutes&from=${day}&to=${day}`,
+  );
+  return parseAvanzaIntradayChart(json, day);
+}
+
+/**
+ * 5-minute OHLC for the same orderbook as Last / daily history.
+ * Prefers Stockholm "today" when it has enough bars; otherwise walks back a bounded
+ * number of calendar days via the date-range endpoint (weekends / holidays / post-midnight).
+ * Does not invent bars — null / sparse when the feed has no eligible session.
+ */
+export async function fetchAvanzaCommodityIntraday(
+  commodityId: AvanzaCommodityId,
+): Promise<AvanzaIntradayPayload | null> {
+  const orderBookId = AVANZA_COMMODITY_ORDERBOOKS[commodityId];
+  const today = await fetchAvanzaIntradayToday(orderBookId);
+  if (today && today.bars.length >= INTRADAY_MIN_POINTS) return today;
+
+  const stockholmToday = stockholmCalendarDay();
+  for (let back = 1; back <= INTRADAY_PRIOR_LOOKBACK_DAYS; back++) {
+    const day = shiftIsoCalendarDay(stockholmToday, -back);
+    const prior = await fetchAvanzaIntradaySessionDay(orderBookId, day);
+    if (prior && prior.bars.length >= INTRADAY_MIN_POINTS) return prior;
+  }
+
+  // Insufficient today and no eligible prior session — return sparse today (if any) for callers.
+  return today;
 }
